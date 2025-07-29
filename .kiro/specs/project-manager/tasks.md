@@ -52,15 +52,15 @@
     - Write unit tests for ViewManager operations with distributed databases
     - _Requirements: 7.1, 7.2, 11.1, 11.3, 11.4_
 
-- [ ] 5. Implement JSON scanning and schema analysis
-  - [ ] 5.1 Create JSONScanner class for file processing
+- [x] 5. Implement JSON scanning and schema analysis
+  - [x] 5.1 Create JSONScanner class for file processing
     - Implement recursive file scanning in source data folders
     - Add JSON file parsing with error handling for invalid files
     - Create schema analysis to determine column types and structure
     - Write unit tests for JSON scanning and parsing
     - _Requirements: 8.1, 8.2, 8.4, 8.5_
 
-  - [ ] 5.2 Implement data population and batch insertion
+  - [x] 5.2 Implement data population and batch insertion
     - Create methods to populate dynamic tables with JSON data in project's .digr database
     - Implement batch insertion for performance with large datasets in per-project databases
     - Add progress tracking and error reporting for scan operations
