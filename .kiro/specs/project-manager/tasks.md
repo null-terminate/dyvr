@@ -22,15 +22,15 @@
     - Write unit tests for schema creation and validation
     - _Requirements: 1.2, 4.2, 7.2, 12.1_
 
-- [ ] 3. Implement core data persistence layer
-  - [ ] 3.1 Create DataPersistence class for application metadata
+- [x] 3. Implement core data persistence layer
+  - [x] 3.1 Create DataPersistence class for application metadata
     - Implement methods to save/load projects, source folders, and views
     - Create database path management and directory creation
     - Add data validation and error handling for persistence operations
     - Write unit tests for data persistence operations
     - _Requirements: 12.2, 12.3, 12.5_
 
-  - [ ] 3.2 Implement ProjectManager class with database integration
+  - [x] 3.2 Implement ProjectManager class with database integration
     - Create project CRUD operations using SQLite
     - Implement source folder management with foreign key relationships
     - Add project validation and duplicate name handling

@@ -62,6 +62,7 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "sqlite3": "^5.1.7"
+    "sqlite3": "^5.1.7",
+    "uuid": "^11.1.0"
   }
 }
