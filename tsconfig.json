@@ -3,6 +3,7 @@
     "target": "ES2020",
     "module": "CommonJS",
     "lib": ["ES2020", "DOM"],
+    "jsx": "react",
     "outDir": "./dist",
     "rootDir": "./",
     "strict": true,
@@ -29,7 +30,8 @@
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    "allowSyntheticDefaultImports": true
   },
   "include": [
     "src/**/*",

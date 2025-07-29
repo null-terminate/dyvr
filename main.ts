@@ -16,12 +16,22 @@ function createWindow(): void {
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
-  mainWindow.loadFile('index.html');
+  // In development mode, load from webpack dev server
+  if (process.argv.includes('--dev')) {
+    mainWindow.loadURL('http://localhost:9000');
+    mainWindow.webContents.openDevTools();
+  } else {
+    // In production, load from the dist directory
+    mainWindow.loadFile(path.join(__dirname, 'index.html'));
+    // Open DevTools in production for debugging
+    // mainWindow.webContents.openDevTools();
+  }
 
   // Initialize application managers
   initializeManagers();
