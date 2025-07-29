@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useElectron } from '../context/ElectronContext';
 
 interface ProjectDetails {
   id: string;
   name: string;
-  path: string;
-  description: string;
-  created: Date;
-  lastOpened: Date;
-  sourceDirectories: string[];
+  path?: string;
+  workingDirectory: string;
+  description?: string;
+  created?: Date;
+  lastOpened?: Date;
+  sourceFolders?: Array<{
+    id: string;
+    path: string;
+  }>;
 }
 
 const ProjectDetail: React.FC = () => {
@@ -16,32 +21,75 @@ const ProjectDetail: React.FC = () => {
   const [project, setProject] = useState<ProjectDetails | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'settings'>('details');
+  const api = useElectron();
 
   useEffect(() => {
-    // In a real app, we would fetch this data from the main process
-    // For now, we'll use mock data
-    const mockProject: ProjectDetails = {
-      id: id || '1',
-      name: `Project ${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}`,
-      path: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}`,
-      description: 'This is a sample project description. It would contain details about the project purpose and goals.',
-      created: new Date(2025, 5, 10),
-      lastOpened: new Date(2025, 6, 25),
-      sourceDirectories: [
-        `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}/src`,
-        `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}/assets`
-      ]
-    };
-    
-    setTimeout(() => {
-      setProject(mockProject);
-      setIsLoading(false);
-    }, 500);
-  }, [id]);
+    if (api && id) {
+      // Set up event listener for projects loaded
+      api.onProjectsLoaded((loadedProjects) => {
+        // Find the specific project by ID
+        const foundProject = loadedProjects.find(p => p.id === id);
+        if (foundProject) {
+          setProject(foundProject);
+        }
+        setIsLoading(false);
+      });
+      
+      api.onError((error) => {
+        console.error('Error loading project:', error);
+        setIsLoading(false);
+      });
+      
+      // Request projects to be loaded
+      api.loadProjects();
+      
+      // Clean up event listeners
+      return () => {
+        api.removeAllListeners('projects-loaded');
+        api.removeAllListeners('error');
+      };
+    } else {
+      // Mock data for development without Electron
+      const mockProject: ProjectDetails = {
+        id: id || '1',
+        name: `Project ${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}`,
+        path: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}`,
+        workingDirectory: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}`,
+        description: 'This is a sample project description. It would contain details about the project purpose and goals.',
+        created: new Date(2025, 5, 10),
+        lastOpened: new Date(2025, 6, 25),
+        sourceFolders: [
+          {
+            id: 'src-1',
+            path: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}/src`
+          },
+          {
+            id: 'assets-1',
+            path: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}/assets`
+          }
+        ]
+      };
+      
+      const timeoutId = setTimeout(() => {
+        setProject(mockProject);
+        setIsLoading(false);
+      }, 500);
+      
+      // Return cleanup function for non-Electron environment
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [id, api]);
 
   const handleAddSourceDirectory = () => {
-    // In a real app, this would open a dialog to select a directory
-    console.log('Add source directory');
+    if (api && project) {
+      // In a real app, this would open a dialog to select a directory
+      // and then call the API to add the source folder
+      console.log('Add source directory to project', project.id);
+    } else {
+      console.log('Add source directory');
+    }
   };
 
   const renderTabContent = () => {
@@ -57,23 +105,31 @@ const ProjectDetail: React.FC = () => {
             </div>
             <div className="form-group">
               <label>Path</label>
-              <input type="text" value={project.path} readOnly />
+              <input type="text" value={project.path || project.workingDirectory} readOnly />
             </div>
             <div className="form-group">
               <label>Description</label>
               <textarea 
-                value={project.description} 
+                value={project.description || 'No description available.'} 
                 readOnly 
                 style={{ height: '100px' }}
               />
             </div>
             <div className="form-group">
               <label>Created</label>
-              <input type="text" value={project.created.toLocaleDateString()} readOnly />
+              <input 
+                type="text" 
+                value={project.created ? project.created.toLocaleDateString() : 'N/A'} 
+                readOnly 
+              />
             </div>
             <div className="form-group">
               <label>Last Opened</label>
-              <input type="text" value={project.lastOpened.toLocaleDateString()} readOnly />
+              <input 
+                type="text" 
+                value={project.lastOpened ? project.lastOpened.toLocaleDateString() : 'N/A'} 
+                readOnly 
+              />
             </div>
           </div>
         );
@@ -84,11 +140,11 @@ const ProjectDetail: React.FC = () => {
               <h3>Source Directories</h3>
               <button onClick={handleAddSourceDirectory}>Add Source Directory</button>
             </div>
-            {project.sourceDirectories.length > 0 ? (
+            {project.sourceFolders && project.sourceFolders.length > 0 ? (
               <ul style={{ listStyle: 'none', padding: 0 }}>
-                {project.sourceDirectories.map((dir, index) => (
+                {project.sourceFolders.map((folder) => (
                   <li 
-                    key={index}
+                    key={folder.id}
                     style={{
                       padding: '10px',
                       marginBottom: '10px',
@@ -97,7 +153,7 @@ const ProjectDetail: React.FC = () => {
                       boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                     }}
                   >
-                    {dir}
+                    {folder.path}
                   </li>
                 ))}
               </ul>
