@@ -111,15 +111,15 @@
     - Write unit tests for renderer IPC communication
     - _Requirements: 12.1, 12.2, 12.3_
 
-- [ ] 8. Implement project management UI with left-hand sidebar
-  - [ ] 8.1 Create main application layout with sidebar and content area
+- [x] 8. Implement project management UI with left-hand sidebar
+  - [x] 8.1 Create main application layout with sidebar and content area
     - Build HTML structure with left sidebar for project list and main content area
     - Implement responsive CSS layout with fixed sidebar and scrollable content
     - Add application header with title and main navigation elements
     - Create consistent styling using system fonts and native appearance
     - _Requirements: 2.1, 2.2, 2.4_
 
-  - [ ] 8.2 Create project list sidebar with CRUD operations
+  - [x] 8.2 Create project list sidebar with CRUD operations
     - Build project list component in left sidebar with project names and icons
     - Implement "Create Project" button and form modal with validation
     - Add project selection highlighting and click-to-select functionality

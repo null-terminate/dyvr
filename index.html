@@ -2,35 +2,972 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Hello World Electron App</title>
+  <title>Project Manager</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+    /* Reset and base styles */
+    * {
       margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      padding: 0;
+      box-sizing: border-box;
     }
-    .container {
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
+      color: #333;
+      background-color: #f5f5f5;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Main application layout */
+    .app-container {
+      display: flex;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+    /* Application header */
+    .app-header {
+      background-color: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 44px;
+      z-index: 100;
+    }
+
+    .app-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .breadcrumb {
+      font-size: 12px;
+      color: #666;
+      display: flex;
+      align-items: center;
+    }
+
+    .breadcrumb-separator {
+      margin: 0 8px;
+      color: #999;
+    }
+
+    /* Main content layout */
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Left sidebar */
+    .sidebar {
+      width: 280px;
+      min-width: 280px;
+      background-color: #fff;
+      border-right: 1px solid #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #e0e0e0;
+      background-color: #fafafa;
+    }
+
+    .sidebar-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .sidebar-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    /* Main content area */
+    .content-area {
+      flex: 1;
+      background-color: #fff;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .content-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e0e0e0;
+      background-color: #fafafa;
+    }
+
+    .content-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .content-subtitle {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .content-body {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      background-color: #fff;
+      color: #333;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background-color: #f5f5f5;
+      border-color: #b0b0b0;
+    }
+
+    .btn:active {
+      background-color: #e8e8e8;
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      background-color: #007aff;
+      border-color: #007aff;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background-color: #0056cc;
+      border-color: #0056cc;
+    }
+
+    .btn-primary:active {
+      background-color: #004499;
+    }
+
+    .btn-small {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
       text-align: center;
+      color: #666;
     }
-    h1 {
-      font-size: 3rem;
-      margin-bottom: 1rem;
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.3;
     }
-    p {
-      font-size: 1.2rem;
-      opacity: 0.9;
+
+    .empty-state-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .empty-state-description {
+      font-size: 13px;
+      margin-bottom: 20px;
+      max-width: 300px;
+    }
+
+    /* Project list styles */
+    .project-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 16px;
+      margin: 2px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+      position: relative;
+    }
+
+    .project-item:hover {
+      background-color: #f0f0f0;
+    }
+
+    .project-item.selected {
+      background-color: #007aff;
+      color: #fff;
+    }
+
+    .project-item.selected:hover {
+      background-color: #0056cc;
+    }
+
+    .project-icon {
+      font-size: 16px;
+      margin-right: 10px;
+      opacity: 0.8;
+    }
+
+    .project-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .project-name {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .project-path {
+      font-size: 11px;
+      opacity: 0.7;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    /* Modal styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      width: 480px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e0e0e0;
+      background-color: #fafafa;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid #e0e0e0;
+      background-color: #fafafa;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Form styles */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 13px;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      background-color: #fff;
+      color: #333;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #007aff;
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+    }
+
+    .form-input.error {
+      border-color: #ff3b30;
+    }
+
+    .form-error {
+      font-size: 12px;
+      color: #ff3b30;
+      margin-top: 4px;
+    }
+
+    .form-help {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .file-picker {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .file-picker-input {
+      flex: 1;
+    }
+
+    .btn-secondary {
+      background-color: #f0f0f0;
+      border-color: #d0d0d0;
+      color: #333;
+    }
+
+    .btn-secondary:hover {
+      background-color: #e0e0e0;
+      border-color: #b0b0b0;
+    }
+
+    /* Context menu styles */
+    .context-menu {
+      position: fixed;
+      background-color: #fff;
+      border: 1px solid #d0d0d0;
+      border-radius: 6px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      padding: 4px 0;
+      min-width: 150px;
+      z-index: 1001;
+    }
+
+    .context-menu-item {
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+
+    .context-menu-item:hover {
+      background-color: #f0f0f0;
+    }
+
+    .context-menu-item.danger {
+      color: #ff3b30;
+    }
+
+    .context-menu-item.danger:hover {
+      background-color: #ff3b30;
+      color: #fff;
+    }
+
+    .context-menu-separator {
+      height: 1px;
+      background-color: #e0e0e0;
+      margin: 4px 0;
+    }
+
+    /* Utility classes */
+    .hidden {
+      display: none !important;
+    }
+
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    /* Scrollbar styling for webkit browsers */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Hello World!</h1>
-    <p>Welcome to your first Electron app</p>
+  <div class="app-container">
+    <!-- Application Header -->
+    <header class="app-header">
+      <div class="app-title">Project Manager</div>
+      <nav class="breadcrumb" id="breadcrumb">
+        <span>Projects</span>
+      </nav>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+      <!-- Left Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-title">Projects</div>
+          <button class="btn btn-primary btn-small" id="create-project-btn">
+            + New Project
+          </button>
+        </div>
+        <div class="sidebar-content" id="project-list">
+          <!-- Project list will be populated here -->
+          <div class="empty-state">
+            <div class="empty-state-icon">📁</div>
+            <div class="empty-state-title">No Projects</div>
+            <div class="empty-state-description">
+              Create your first project to get started organizing your work.
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Area -->
+      <main class="content-area">
+        <div class="content-header">
+          <div class="content-title" id="content-title">Welcome</div>
+          <div class="content-subtitle" id="content-subtitle">
+            Select a project from the sidebar to view its details
+          </div>
+        </div>
+        <div class="content-body" id="content-body">
+          <div class="empty-state">
+            <div class="empty-state-icon">👋</div>
+            <div class="empty-state-title">Welcome to Project Manager</div>
+            <div class="empty-state-description">
+              This application helps you organize and manage your projects with associated working directories and
+              source data folders. Start by creating your first project using the button in the sidebar.
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   </div>
+
+  <!-- Create Project Modal -->
+  <div class="modal-overlay hidden" id="create-project-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Create New Project</div>
+      </div>
+      <div class="modal-body">
+        <form id="create-project-form">
+          <div class="form-group">
+            <label class="form-label" for="project-name">Project Name</label>
+            <input type="text" class="form-input" id="project-name" placeholder="Enter project name" required>
+            <div class="form-error hidden" id="project-name-error"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="working-directory">Working Directory</label>
+            <div class="file-picker">
+              <input type="text" class="form-input file-picker-input" id="working-directory"
+                placeholder="Select working directory" readonly required>
+              <button type="button" class="btn btn-secondary" id="browse-directory-btn">
+                Browse...
+              </button>
+            </div>
+            <div class="form-help">
+              Choose a directory where project files will be stored
+            </div>
+            <div class="form-error hidden" id="working-directory-error"></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancel-create-btn">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="confirm-create-btn" form="create-project-form">
+          Create Project
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay hidden" id="delete-project-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Delete Project</div>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete "<span id="delete-project-name"></span>"?</p>
+        <p style="margin-top: 8px; font-size: 12px; color: #666;">
+          This will remove the project from the list but will not delete the working directory or its contents.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancel-delete-btn">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="confirm-delete-btn"
+          style="background-color: #ff3b30; border-color: #ff3b30;">
+          Delete Project
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Menu -->
+  <div class="context-menu hidden" id="project-context-menu">
+    <div class="context-menu-item" id="context-delete-project">
+      Delete Project
+    </div>
+  </div>
+
+  <script>
+    // Application state
+    let projects = [];
+    let selectedProjectId = null;
+    let contextMenuProjectId = null;
+
+    // Basic UI initialization
+    document.addEventListener('DOMContentLoaded', function () {
+      console.log('Project Manager UI loaded');
+
+      // Initialize breadcrumb navigation
+      updateBreadcrumb(['Projects']);
+
+      // Initialize event listeners
+      initializeEventListeners();
+
+      // Load projects from main process
+      loadProjects();
+    });
+
+    // Initialize all event listeners
+    function initializeEventListeners() {
+      // Create project button
+      const createProjectBtn = document.getElementById('create-project-btn');
+      createProjectBtn.addEventListener('click', showCreateProjectModal);
+
+      // Create project modal events
+      const cancelCreateBtn = document.getElementById('cancel-create-btn');
+      const confirmCreateBtn = document.getElementById('confirm-create-btn');
+      const browseDirectoryBtn = document.getElementById('browse-directory-btn');
+      const createProjectForm = document.getElementById('create-project-form');
+
+      cancelCreateBtn.addEventListener('click', hideCreateProjectModal);
+      browseDirectoryBtn.addEventListener('click', browseWorkingDirectory);
+      createProjectForm.addEventListener('submit', handleCreateProject);
+
+      // Delete project modal events
+      const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+      const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+      cancelDeleteBtn.addEventListener('click', hideDeleteProjectModal);
+      confirmDeleteBtn.addEventListener('click', handleDeleteProject);
+
+      // Context menu events
+      const contextDeleteBtn = document.getElementById('context-delete-project');
+      contextDeleteBtn.addEventListener('click', showDeleteProjectModal);
+
+      // Close modals and context menu when clicking outside
+      document.addEventListener('click', handleDocumentClick);
+
+      // Close context menu on right click elsewhere
+      document.addEventListener('contextmenu', function (e) {
+        if (!e.target.closest('.project-item')) {
+          hideContextMenu();
+        }
+      });
+
+      // Prevent default context menu on project items
+      document.addEventListener('contextmenu', function (e) {
+        if (e.target.closest('.project-item')) {
+          e.preventDefault();
+        }
+      });
+    }
+
+    // Load projects from main process
+    function loadProjects() {
+      // For now, we'll use mock data until IPC is implemented
+      // This will be replaced with actual IPC communication
+      projects = [
+        {
+          id: '1',
+          name: 'Sample Project',
+          workingDirectory: '/Users/example/Documents/sample-project',
+          createdDate: new Date('2024-01-15'),
+          lastModified: new Date('2024-01-20')
+        },
+        {
+          id: '2',
+          name: 'Another Project',
+          workingDirectory: '/Users/example/Documents/another-project',
+          createdDate: new Date('2024-01-10'),
+          lastModified: new Date('2024-01-18')
+        }
+      ];
+
+      renderProjectList();
+    }
+
+    // Render the project list in the sidebar
+    function renderProjectList() {
+      const projectListContainer = document.getElementById('project-list');
+
+      if (projects.length === 0) {
+        projectListContainer.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📁</div>
+            <div class="empty-state-title">No Projects</div>
+            <div class="empty-state-description">
+              Create your first project to get started organizing your work.
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const projectItems = projects.map(project => `
+        <div class="project-item ${project.id === selectedProjectId ? 'selected' : ''}" 
+             data-project-id="${project.id}">
+          <div class="project-icon">📁</div>
+          <div class="project-info">
+            <div class="project-name">${escapeHtml(project.name)}</div>
+            <div class="project-path">${escapeHtml(project.workingDirectory)}</div>
+          </div>
+        </div>
+      `).join('');
+
+      projectListContainer.innerHTML = projectItems;
+
+      // Add event listeners to project items
+      const projectElements = projectListContainer.querySelectorAll('.project-item');
+      projectElements.forEach(element => {
+        element.addEventListener('click', handleProjectClick);
+        element.addEventListener('contextmenu', handleProjectRightClick);
+      });
+    }
+
+    // Handle project item click
+    function handleProjectClick(e) {
+      const projectId = e.currentTarget.dataset.projectId;
+      selectProject(projectId);
+    }
+
+    // Handle project item right click
+    function handleProjectRightClick(e) {
+      e.preventDefault();
+      const projectId = e.currentTarget.dataset.projectId;
+      contextMenuProjectId = projectId;
+      showContextMenu(e.clientX, e.clientY);
+    }
+
+    // Select a project
+    function selectProject(projectId) {
+      selectedProjectId = projectId;
+      renderProjectList();
+
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        updateContentArea(project);
+      }
+    }
+
+    // Update the main content area with project details
+    function updateContentArea(project) {
+      const contentTitle = document.getElementById('content-title');
+      const contentSubtitle = document.getElementById('content-subtitle');
+      const contentBody = document.getElementById('content-body');
+
+      contentTitle.textContent = project.name;
+      contentSubtitle.textContent = `Working Directory: ${project.workingDirectory}`;
+
+      contentBody.innerHTML = `
+        <div style="max-width: 600px;">
+          <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 600;">Project Information</h3>
+          <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="margin-bottom: 8px;"><strong>Name:</strong> ${escapeHtml(project.name)}</div>
+            <div style="margin-bottom: 8px;"><strong>Working Directory:</strong> ${escapeHtml(project.workingDirectory)}</div>
+            <div style="margin-bottom: 8px;"><strong>Created:</strong> ${project.createdDate.toLocaleDateString()}</div>
+            <div><strong>Last Modified:</strong> ${project.lastModified.toLocaleDateString()}</div>
+          </div>
+          <p style="color: #666; font-size: 13px;">
+            This is a placeholder view. Source folder management and view creation will be implemented in future tasks.
+          </p>
+        </div>
+      `;
+    }
+
+    // Show create project modal
+    function showCreateProjectModal() {
+      const modal = document.getElementById('create-project-modal');
+      modal.classList.remove('hidden');
+
+      // Clear form
+      document.getElementById('project-name').value = '';
+      document.getElementById('working-directory').value = '';
+      clearFormErrors();
+
+      // Focus on project name input
+      setTimeout(() => {
+        document.getElementById('project-name').focus();
+      }, 100);
+    }
+
+    // Hide create project modal
+    function hideCreateProjectModal() {
+      const modal = document.getElementById('create-project-modal');
+      modal.classList.add('hidden');
+      clearFormErrors();
+    }
+
+    // Browse for working directory
+    function browseWorkingDirectory() {
+      // This would normally use Electron's dialog API
+      // For now, we'll simulate with a prompt
+      const directory = prompt('Enter working directory path:');
+      if (directory) {
+        document.getElementById('working-directory').value = directory;
+        clearFieldError('working-directory');
+      }
+    }
+
+    // Handle create project form submission
+    function handleCreateProject(e) {
+      e.preventDefault();
+
+      const projectName = document.getElementById('project-name').value.trim();
+      const workingDirectory = document.getElementById('working-directory').value.trim();
+
+      // Validate form
+      let hasErrors = false;
+
+      if (!projectName) {
+        showFieldError('project-name', 'Project name is required');
+        hasErrors = true;
+      } else if (projects.some(p => p.name.toLowerCase() === projectName.toLowerCase())) {
+        showFieldError('project-name', 'A project with this name already exists');
+        hasErrors = true;
+      }
+
+      if (!workingDirectory) {
+        showFieldError('working-directory', 'Working directory is required');
+        hasErrors = true;
+      }
+
+      if (hasErrors) {
+        return;
+      }
+
+      // Create new project
+      const newProject = {
+        id: Date.now().toString(),
+        name: projectName,
+        workingDirectory: workingDirectory,
+        createdDate: new Date(),
+        lastModified: new Date()
+      };
+
+      projects.push(newProject);
+      renderProjectList();
+      selectProject(newProject.id);
+      hideCreateProjectModal();
+    }
+
+    // Show delete project modal
+    function showDeleteProjectModal() {
+      const project = projects.find(p => p.id === contextMenuProjectId);
+      if (!project) return;
+
+      const modal = document.getElementById('delete-project-modal');
+      const projectNameSpan = document.getElementById('delete-project-name');
+
+      projectNameSpan.textContent = project.name;
+      modal.classList.remove('hidden');
+      hideContextMenu();
+    }
+
+    // Hide delete project modal
+    function hideDeleteProjectModal() {
+      const modal = document.getElementById('delete-project-modal');
+      modal.classList.add('hidden');
+    }
+
+    // Handle delete project
+    function handleDeleteProject() {
+      if (!contextMenuProjectId) return;
+
+      projects = projects.filter(p => p.id !== contextMenuProjectId);
+
+      // If deleted project was selected, clear selection
+      if (selectedProjectId === contextMenuProjectId) {
+        selectedProjectId = null;
+        resetContentArea();
+      }
+
+      renderProjectList();
+      hideDeleteProjectModal();
+      contextMenuProjectId = null;
+    }
+
+    // Show context menu
+    function showContextMenu(x, y) {
+      const contextMenu = document.getElementById('project-context-menu');
+      contextMenu.style.left = x + 'px';
+      contextMenu.style.top = y + 'px';
+      contextMenu.classList.remove('hidden');
+    }
+
+    // Hide context menu
+    function hideContextMenu() {
+      const contextMenu = document.getElementById('project-context-menu');
+      contextMenu.classList.add('hidden');
+    }
+
+    // Reset content area to welcome state
+    function resetContentArea() {
+      const contentTitle = document.getElementById('content-title');
+      const contentSubtitle = document.getElementById('content-subtitle');
+      const contentBody = document.getElementById('content-body');
+
+      contentTitle.textContent = 'Welcome';
+      contentSubtitle.textContent = 'Select a project from the sidebar to view its details';
+
+      contentBody.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">👋</div>
+          <div class="empty-state-title">Welcome to Project Manager</div>
+          <div class="empty-state-description">
+            This application helps you organize and manage your projects with associated working directories and source data folders. Start by creating your first project using the button in the sidebar.
+          </div>
+        </div>
+      `;
+    }
+
+    // Handle document clicks to close modals and context menu
+    function handleDocumentClick(e) {
+      // Close context menu if clicking outside
+      const contextMenu = document.getElementById('project-context-menu');
+      if (!contextMenu.classList.contains('hidden') && !e.target.closest('.context-menu')) {
+        hideContextMenu();
+      }
+
+      // Close modals if clicking on overlay
+      if (e.target.classList.contains('modal-overlay')) {
+        hideCreateProjectModal();
+        hideDeleteProjectModal();
+      }
+    }
+
+    // Form validation helpers
+    function showFieldError(fieldId, message) {
+      const field = document.getElementById(fieldId);
+      const errorElement = document.getElementById(fieldId + '-error');
+
+      field.classList.add('error');
+      errorElement.textContent = message;
+      errorElement.classList.remove('hidden');
+    }
+
+    function clearFieldError(fieldId) {
+      const field = document.getElementById(fieldId);
+      const errorElement = document.getElementById(fieldId + '-error');
+
+      field.classList.remove('error');
+      errorElement.classList.add('hidden');
+    }
+
+    function clearFormErrors() {
+      const errorElements = document.querySelectorAll('.form-error');
+      const inputElements = document.querySelectorAll('.form-input');
+
+      errorElements.forEach(el => el.classList.add('hidden'));
+      inputElements.forEach(el => el.classList.remove('error'));
+    }
+
+    // Utility function to update breadcrumb navigation
+    function updateBreadcrumb(path) {
+      const breadcrumb = document.getElementById('breadcrumb');
+      if (breadcrumb && path && path.length > 0) {
+        breadcrumb.innerHTML = path.map((item, index) => {
+          if (index === path.length - 1) {
+            return `<span>${item}</span>`;
+          } else {
+            return `<span>${item}</span><span class="breadcrumb-separator">›</span>`;
+          }
+        }).join('');
+      }
+    }
+
+    // Utility function to show loading state
+    function setLoadingState(element, loading) {
+      if (loading) {
+        element.classList.add('loading');
+      } else {
+        element.classList.remove('loading');
+      }
+    }
+
+    // Utility function to show/hide elements
+    function toggleElement(element, show) {
+      if (show) {
+        element.classList.remove('hidden');
+      } else {
+        element.classList.add('hidden');
+      }
+    }
+
+    // Utility function to escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
 </body>
 </html>
