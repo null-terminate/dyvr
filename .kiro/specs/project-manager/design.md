@@ -4,7 +4,7 @@
 
 This design document outlines the architecture for a project management Electron desktop application that enables users to create and manage projects with associated working directories, source data folders, and data views. The application follows Electron's main/renderer process architecture and provides a tabular interface for querying JSON data files.
 
-The application is designed as a single-window desktop application with multiple screens for project management, view creation, and data analysis. It uses an embedded SQLite database for data storage and querying, with JSON configuration files for application metadata persistence.
+The application is designed as a single-window desktop application with multiple screens for project management, view creation, and data analysis. Each project maintains its own local SQLite database within a `.digr` folder in the project's working directory, providing project-level data isolation and portability.
 
 ## Architecture
 
@@ -15,9 +15,9 @@ The application follows Electron's standard two-process architecture:
 **Main Process (`main.js`)**
 - Application lifecycle management
 - Window creation and management
-- File system operations (project creation, JSON scanning)
-- SQLite database management and operations
-- Application metadata persistence to JSON files
+- File system operations (project creation, JSON scanning, .digr folder management)
+- SQLite database management and operations (per-project databases)
+- Application metadata persistence to project-local .digr folders
 - IPC communication with renderer process
 
 **Renderer Process (`index.html` + associated scripts)**
@@ -59,17 +59,21 @@ User Query → QueryBuilder → SQL Generation → DatabaseManager → SQLite Ex
 ### Main Process Components
 
 #### ProjectManager
-Handles project CRUD operations and persistence.
+Handles project CRUD operations and persistence across global registry and per-project databases.
 
 ```javascript
 class ProjectManager {
   createProject(name, workingDirectory)
   deleteProject(projectId)
   getProjects()
+  getProject(projectId)
   addSourceFolder(projectId, folderPath)
   removeSourceFolder(projectId, folderPath)
-  saveProjects()
+  getSourceFolders(projectId)
   loadProjects()
+  openProjectDatabase(projectId)
+  closeProjectDatabase(projectId)
+  ensureProjectDigrFolder(workingDirectory)
 }
 ```
 
@@ -101,30 +105,36 @@ class JSONScanner {
 ```
 
 #### DatabaseManager
-Manages SQLite database operations for data storage and querying.
+Manages SQLite database operations for individual project databases.
 
 ```javascript
 class DatabaseManager {
-  initializeDatabase()
+  constructor(projectWorkingDirectory)
+  initializeProjectDatabase(projectId, projectName, workingDirectory)
+  openProjectDatabase(projectWorkingDirectory)
+  closeProjectDatabase()
   createDataTable(viewId, columns)
   insertRecords(viewId, records)
   executeQuery(viewId, sqlQuery)
   dropDataTable(viewId)
   getTableSchema(viewId)
-  closeDatabase()
+  ensureDigrFolder(workingDirectory)
+  getDatabasePath(workingDirectory)
 }
 ```
 
 #### DataPersistence
-Handles saving/loading application metadata to local storage (projects, views configuration).
+Handles saving/loading global application metadata and manages project registry.
 
 ```javascript
 class DataPersistence {
-  saveApplicationData(data)
-  loadApplicationData()
-  getDataFilePath()
-  getDatabasePath()
-  ensureDataDirectory()
+  saveProjectRegistry(projects)
+  loadProjectRegistry()
+  getProjectRegistryPath()
+  ensureApplicationDataDirectory()
+  addProjectToRegistry(project)
+  removeProjectFromRegistry(projectId)
+  updateProjectInRegistry(projectId, updates)
 }
 ```
 
@@ -199,12 +209,30 @@ class QueryBuilder {
 
 ### SQLite Database Schema
 
-The application uses a single SQLite database file with the following structure:
+The application uses a distributed database approach where each project maintains its own SQLite database file located at `{workingDirectory}/.digr/project.db`. This provides project-level data isolation and portability.
 
-#### Application Metadata Tables
+#### Global Application Data
+A lightweight JSON file stores the global project registry at the application level:
+```json
+{
+  "projects": [
+    {
+      "id": "uuid",
+      "name": "Project Name",
+      "workingDirectory": "/path/to/project",
+      "createdDate": "2024-01-01T00:00:00Z",
+      "lastModified": "2024-01-01T00:00:00Z"
+    }
+  ]
+}
+```
+
+#### Per-Project Database Schema
+Each project's `.digr/project.db` contains:
+
 ```sql
--- Projects table
-CREATE TABLE projects (
+-- Project metadata table (single row per database)
+CREATE TABLE project_info (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   working_directory TEXT NOT NULL,
@@ -215,21 +243,17 @@ CREATE TABLE projects (
 -- Source folders table
 CREATE TABLE source_folders (
   id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL,
   path TEXT NOT NULL,
-  added_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  added_date DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Views table
 CREATE TABLE views (
   id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL,
   name TEXT NOT NULL,
   created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
   last_modified DATETIME DEFAULT CURRENT_TIMESTAMP,
-  last_query TEXT, -- JSON string of last applied query
-  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+  last_query TEXT -- JSON string of last applied query
 );
 ```
 

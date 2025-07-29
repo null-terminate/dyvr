@@ -8,49 +8,49 @@
   - _Requirements: 7.1, 12.1_
 
 - [x] 2. Implement SQLite database foundation
-  - [x] 2.1 Create DatabaseManager class with basic SQLite operations
-    - Implement database initialization and connection management
+  - [x] 2.1 Create DatabaseManager class with centralized SQLite operations
+    - Implement centralized database initialization and connection management
     - Create methods for opening, closing, and executing SQL queries
     - Add error handling for database connection issues
     - Write unit tests for database connection and basic operations
     - _Requirements: 12.1, 12.4_
 
-  - [x] 2.2 Implement application metadata schema creation
-    - Create SQL scripts for projects, source_folders, and views tables
+  - [x] 2.2 Implement centralized database schema creation
+    - Create SQL scripts for projects, source_folders, and views tables in centralized database
     - Implement schema migration and initialization in DatabaseManager
     - Add methods for creating and validating database schema
     - Write unit tests for schema creation and validation
     - _Requirements: 1.2, 4.2, 7.2, 12.1_
 
 - [x] 3. Implement core data persistence layer
-  - [x] 3.1 Create DataPersistence class for application metadata
-    - Implement methods to save/load projects, source folders, and views
-    - Create database path management and directory creation
-    - Add data validation and error handling for persistence operations
-    - Write unit tests for data persistence operations
+  - [x] 3.1 Create DataPersistence class for centralized data management
+    - Implement methods to save/load projects, source folders, and views using SQLite
+    - Create application data directory management using userData folder
+    - Add data validation and error handling for all operations
+    - Write unit tests for all persistence operations
     - _Requirements: 12.2, 12.3, 12.5_
 
-  - [x] 3.2 Implement ProjectManager class with database integration
-    - Create project CRUD operations using SQLite
+  - [x] 3.2 Implement ProjectManager class with centralized database integration
+    - Create project CRUD operations using centralized SQLite database
     - Implement source folder management with foreign key relationships
-    - Add project validation and duplicate name handling
+    - Add project validation, duplicate name handling, and working directory validation
     - Write unit tests for project management operations
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 3.1, 3.2, 4.1, 4.4, 5.1_
 
 - [ ] 4. Implement view management system
-  - [ ] 4.1 Create ViewManager class with database operations
-    - Implement view CRUD operations with project relationships
-    - Add view name validation and duplicate handling
-    - Create methods for managing view-specific data tables
-    - Write unit tests for view management operations
-    - _Requirements: 7.1, 7.2, 11.1, 11.3, 11.4_
-
-  - [ ] 4.2 Implement dynamic table creation for view data
-    - Create methods to generate dynamic table schemas based on JSON analysis
-    - Implement table creation, dropping, and schema validation
-    - Add support for different data types (TEXT, INTEGER, REAL)
-    - Write unit tests for dynamic table operations
+  - [x] 4.1 Enhance DatabaseManager for dynamic table operations
+    - Extend existing dynamic table creation methods for view data
+    - Add data insertion methods for populating view tables with JSON data
+    - Implement query execution methods for view data tables
+    - Write unit tests for enhanced dynamic table operations
     - _Requirements: 8.2, 8.3, 9.1, 9.2_
+
+  - [ ] 4.2 Create ViewManager class with database integration
+    - Create ViewManager class that uses DataPersistence for view CRUD operations
+    - Add view name validation and duplicate checking within projects
+    - Implement view deletion with associated data table cleanup
+    - Write unit tests for ViewManager operations
+    - _Requirements: 7.1, 7.2, 11.1, 11.3, 11.4_
 
 - [ ] 5. Implement JSON scanning and schema analysis
   - [ ] 5.1 Create JSONScanner class for file processing
@@ -82,12 +82,12 @@
     - Write unit tests for query execution and result handling
     - _Requirements: 10.3, 10.4, 10.5_
 
-- [ ] 7. Implement main process IPC handlers
-  - [ ] 7.1 Create IPC event handlers for project operations
-    - Implement handlers for project CRUD operations
+- [ ] 7. Implement main process integration and IPC setup
+  - [ ] 7.1 Update main.js with application managers and IPC handlers
+    - Initialize ProjectManager, ViewManager, and other core services in main process
+    - Implement IPC event handlers for project CRUD operations
     - Add source folder management IPC handlers
     - Create error handling and response formatting for IPC
-    - Write integration tests for project-related IPC communication
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 3.1, 3.2, 4.1, 4.4, 5.1_
 
   - [ ] 7.2 Create IPC event handlers for view and data operations
