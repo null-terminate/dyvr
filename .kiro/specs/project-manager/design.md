@@ -6,6 +6,8 @@ This design document outlines the architecture for a project management Electron
 
 The application is designed as a single-window desktop application with multiple screens for project management, view creation, and data analysis. Each project maintains its own local SQLite database within a `.digr` folder in the project's working directory, providing project-level data isolation and portability.
 
+**Technology Stack**: The application is built using TypeScript for enhanced type safety, better IDE support, and improved maintainability. All main process and renderer process code uses TypeScript with strict type checking enabled.
+
 ## Architecture
 
 ### Process Architecture
@@ -61,80 +63,80 @@ User Query → QueryBuilder → SQL Generation → DatabaseManager → SQLite Ex
 #### ProjectManager
 Handles project CRUD operations and persistence across global registry and per-project databases.
 
-```javascript
+```typescript
 class ProjectManager {
-  createProject(name, workingDirectory)
-  deleteProject(projectId)
-  getProjects()
-  getProject(projectId)
-  addSourceFolder(projectId, folderPath)
-  removeSourceFolder(projectId, folderPath)
-  getSourceFolders(projectId)
-  loadProjects()
-  openProjectDatabase(projectId)
-  closeProjectDatabase(projectId)
-  ensureProjectDigrFolder(workingDirectory)
+  createProject(name: string, workingDirectory: string): Promise<Project>
+  deleteProject(projectId: string): Promise<void>
+  getProjects(): Promise<Project[]>
+  getProject(projectId: string): Promise<Project | null>
+  addSourceFolder(projectId: string, folderPath: string): Promise<void>
+  removeSourceFolder(projectId: string, folderPath: string): Promise<void>
+  getSourceFolders(projectId: string): Promise<SourceFolder[]>
+  loadProjects(): Promise<void>
+  openProjectDatabase(projectId: string): Promise<DatabaseManager>
+  closeProjectDatabase(projectId: string): Promise<void>
+  ensureProjectDigrFolder(workingDirectory: string): Promise<void>
 }
 ```
 
 #### ViewManager
 Manages views within projects.
 
-```javascript
+```typescript
 class ViewManager {
-  createView(projectId, viewName)
-  deleteView(projectId, viewId)
-  getViews(projectId)
-  saveViews()
-  loadViews()
+  createView(projectId: string, viewName: string): Promise<View>
+  deleteView(projectId: string, viewId: string): Promise<void>
+  getViews(projectId: string): Promise<View[]>
+  saveViews(): Promise<void>
+  loadViews(): Promise<void>
 }
 ```
 
 #### JSONScanner
 Scans and parses JSON files from source data folders, analyzes schema, and populates SQLite database.
 
-```javascript
+```typescript
 class JSONScanner {
-  scanSourceFolders(sourceFolders)
-  parseJSONFile(filePath)
-  analyzeSchema(jsonDataArrays)
-  createDataTable(viewId, columns)
-  populateDataTable(viewId, records)
-  getUniqueColumns(combinedData)
+  scanSourceFolders(sourceFolders: SourceFolder[]): Promise<ScanResults>
+  parseJSONFile(filePath: string): Promise<any[]>
+  analyzeSchema(jsonDataArrays: any[][]): ColumnSchema[]
+  createDataTable(viewId: string, columns: ColumnSchema[]): Promise<void>
+  populateDataTable(viewId: string, records: any[]): Promise<void>
+  getUniqueColumns(combinedData: any[]): string[]
 }
 ```
 
 #### DatabaseManager
 Manages SQLite database operations for individual project databases.
 
-```javascript
+```typescript
 class DatabaseManager {
-  constructor(projectWorkingDirectory)
-  initializeProjectDatabase(projectId, projectName, workingDirectory)
-  openProjectDatabase(projectWorkingDirectory)
-  closeProjectDatabase()
-  createDataTable(viewId, columns)
-  insertRecords(viewId, records)
-  executeQuery(viewId, sqlQuery)
-  dropDataTable(viewId)
-  getTableSchema(viewId)
-  ensureDigrFolder(workingDirectory)
-  getDatabasePath(workingDirectory)
+  constructor(projectWorkingDirectory: string)
+  initializeProjectDatabase(projectId: string, projectName: string, workingDirectory: string): Promise<void>
+  openProjectDatabase(projectWorkingDirectory: string): Promise<void>
+  closeProjectDatabase(): Promise<void>
+  createDataTable(viewId: string, columns: ColumnSchema[]): Promise<void>
+  insertRecords(viewId: string, records: any[]): Promise<void>
+  executeQuery(viewId: string, sqlQuery: string): Promise<QueryResult>
+  dropDataTable(viewId: string): Promise<void>
+  getTableSchema(viewId: string): Promise<ColumnSchema[]>
+  ensureDigrFolder(workingDirectory: string): Promise<void>
+  getDatabasePath(workingDirectory: string): string
 }
 ```
 
 #### DataPersistence
 Handles saving/loading global application metadata and manages project registry.
 
-```javascript
+```typescript
 class DataPersistence {
-  saveProjectRegistry(projects)
-  loadProjectRegistry()
-  getProjectRegistryPath()
-  ensureApplicationDataDirectory()
-  addProjectToRegistry(project)
-  removeProjectFromRegistry(projectId)
-  updateProjectInRegistry(projectId, updates)
+  saveProjectRegistry(projects: Project[]): Promise<void>
+  loadProjectRegistry(): Promise<Project[]>
+  getProjectRegistryPath(): string
+  ensureApplicationDataDirectory(): Promise<void>
+  addProjectToRegistry(project: Project): Promise<void>
+  removeProjectFromRegistry(projectId: string): Promise<void>
+  updateProjectInRegistry(projectId: string, updates: Partial<Project>): Promise<void>
 }
 ```
 
@@ -143,38 +145,38 @@ class DataPersistence {
 #### UIManager
 Manages screen transitions and UI state.
 
-```javascript
+```typescript
 class UIManager {
-  showProjectList()
-  showProjectDetail(projectId)
-  showViewList(projectId)
-  showDataView(projectId, viewId)
-  updateBreadcrumb(path)
+  showProjectList(): void
+  showProjectDetail(projectId: string): void
+  showViewList(projectId: string): void
+  showDataView(projectId: string, viewId: string): void
+  updateBreadcrumb(path: string[]): void
 }
 ```
 
 #### TableRenderer
 Renders JSON data in tabular format with sorting.
 
-```javascript
+```typescript
 class TableRenderer {
-  renderTable(data, properties)
-  sortByColumn(columnName, direction)
-  updatePagination(currentPage, totalPages)
-  handleCellClick(row, column)
+  renderTable(data: any[], properties: string[]): void
+  sortByColumn(columnName: string, direction: 'ASC' | 'DESC'): void
+  updatePagination(currentPage: number, totalPages: number): void
+  handleCellClick(row: number, column: string): void
 }
 ```
 
 #### QueryBuilder
 Provides interface for building SQL queries from user input.
 
-```javascript
+```typescript
 class QueryBuilder {
-  buildSQLQuery(filters, sortBy, sortDirection)
-  generateWhereClause(filters)
-  generateOrderByClause(sortBy, sortDirection)
-  validateQuery(query)
-  getSupportedOperators()
+  buildSQLQuery(filters: QueryFilter[], sortBy?: string, sortDirection?: 'ASC' | 'DESC'): string
+  generateWhereClause(filters: QueryFilter[]): string
+  generateOrderByClause(sortBy: string, sortDirection: 'ASC' | 'DESC'): string
+  validateQuery(query: QueryModel): boolean
+  getSupportedOperators(): QueryOperator[]
 }
 ```
 
@@ -273,86 +275,84 @@ CREATE TABLE data_view_{viewId} (
 );
 ```
 
-### Application Data Models (In-Memory)
+### Application Data Models (TypeScript Interfaces)
 
-### Project Model
-```javascript
-{
-  id: string,           // Unique identifier
-  name: string,         // User-provided name
-  workingDirectory: string,  // Full path to working directory
-  sourceFolders: [      // Array of source data folder paths
-    {
-      id: string,
-      path: string,
-      addedDate: Date
-    }
-  ],
-  createdDate: Date,
-  lastModified: Date
+```typescript
+interface SourceFolder {
+  id: string;
+  path: string;
+  addedDate: Date;
 }
-```
 
-### View Model
-```javascript
-{
-  id: string,           // Unique identifier
-  projectId: string,    // Parent project ID
-  name: string,         // User-provided name
-  createdDate: Date,
-  lastModified: Date,
-  lastQuery: object,    // Last applied query (optional)
-  tableSchema: [        // Schema of the data table
-    {
-      columnName: string,
-      dataType: string,   // 'TEXT', 'INTEGER', 'REAL'
-      nullable: boolean
-    }
-  ]
+interface Project {
+  id: string;           // Unique identifier
+  name: string;         // User-provided name
+  workingDirectory: string;  // Full path to working directory
+  sourceFolders: SourceFolder[];  // Array of source data folder paths
+  createdDate: Date;
+  lastModified: Date;
 }
-```
 
-### Scan Results Model
-```javascript
-{
-  viewId: string,       // Target view ID
-  totalFiles: number,   // Total JSON files found
-  processedFiles: number, // Successfully processed files
-  totalRecords: number, // Total records inserted
-  columns: [            // Discovered column schema
-    {
-      name: string,
-      type: string,     // 'TEXT', 'INTEGER', 'REAL'
-      nullable: boolean,
-      sampleValues: [any] // Sample values for type inference
-    }
-  ],
-  errors: [             // Processing errors
-    {
-      file: string,
-      error: string
-    }
-  ],
-  scanDate: Date
+interface ColumnSchema {
+  columnName: string;
+  dataType: 'TEXT' | 'INTEGER' | 'REAL';
+  nullable: boolean;
 }
-```
 
-### Query Model
-```javascript
-{
-  viewId: string,       // Target view ID
-  filters: [
-    {
-      column: string,       // Column name to filter on
-      operator: string,     // 'equals', 'contains', 'greater', 'less', 'like'
-      value: any,          // Filter value
-      dataType: string     // 'TEXT', 'INTEGER', 'REAL'
-    }
-  ],
-  sortBy: string,         // Column name to sort by
-  sortDirection: string,  // 'ASC' or 'DESC'
-  limit: number,          // Result limit for pagination
-  offset: number          // Result offset for pagination
+interface View {
+  id: string;           // Unique identifier
+  projectId: string;    // Parent project ID
+  name: string;         // User-provided name
+  createdDate: Date;
+  lastModified: Date;
+  lastQuery?: QueryModel;    // Last applied query (optional)
+  tableSchema: ColumnSchema[];  // Schema of the data table
+}
+
+interface ScanError {
+  file: string;
+  error: string;
+}
+
+interface ScanColumn {
+  name: string;
+  type: 'TEXT' | 'INTEGER' | 'REAL';
+  nullable: boolean;
+  sampleValues: any[];  // Sample values for type inference
+}
+
+interface ScanResults {
+  viewId: string;       // Target view ID
+  totalFiles: number;   // Total JSON files found
+  processedFiles: number; // Successfully processed files
+  totalRecords: number; // Total records inserted
+  columns: ScanColumn[];  // Discovered column schema
+  errors: ScanError[];  // Processing errors
+  scanDate: Date;
+}
+
+type QueryOperator = 'equals' | 'contains' | 'greater' | 'less' | 'like';
+
+interface QueryFilter {
+  column: string;       // Column name to filter on
+  operator: QueryOperator;  // Filter operator
+  value: any;          // Filter value
+  dataType: 'TEXT' | 'INTEGER' | 'REAL';  // Data type for proper SQL generation
+}
+
+interface QueryModel {
+  viewId: string;       // Target view ID
+  filters: QueryFilter[];
+  sortBy?: string;      // Column name to sort by
+  sortDirection?: 'ASC' | 'DESC';  // Sort direction
+  limit?: number;       // Result limit for pagination
+  offset?: number;      // Result offset for pagination
+}
+
+interface QueryResult {
+  data: any[];          // Query result rows
+  totalCount: number;   // Total count without pagination
+  columns: string[];    // Column names in result
 }
 ```
 

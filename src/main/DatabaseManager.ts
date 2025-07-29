@@ -1,29 +1,38 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const fs = require('fs');
+import * as sqlite3 from 'sqlite3';
+import * as path from 'path';
+import * as fs from 'fs';
+import { ColumnSchema } from '../types';
+
+interface DatabaseResult {
+  lastID: number;
+  changes: number;
+}
+
+interface TransactionStatement {
+  sql: string;
+  params?: any[];
+}
 
 /**
  * DatabaseManager handles SQLite database operations for individual project databases.
  * Each project maintains its own SQLite database file located at {workingDirectory}/.digr/project.db
  * This provides project-level data isolation and portability.
  */
-class DatabaseManager {
-  constructor(projectWorkingDirectory) {
+export class DatabaseManager {
+  private projectWorkingDirectory: string;
+  private db: sqlite3.Database | null = null;
+  private isInitialized: boolean = false;
+  private databasePath: string | null = null;
+
+  constructor(projectWorkingDirectory: string) {
     this.projectWorkingDirectory = projectWorkingDirectory;
-    this.db = null;
-    this.isInitialized = false;
-    this.databasePath = null;
   }
 
   /**
    * Initialize the per-project database connection and create the database file if it doesn't exist
    * Creates the .digr folder in the project's working directory if it doesn't exist
-   * @param {string} projectId - The project ID
-   * @param {string} projectName - The project name
-   * @param {string} workingDirectory - The project's working directory
-   * @returns {Promise<void>}
    */
-  async initializeProjectDatabase(projectId, projectName, workingDirectory) {
+  async initializeProjectDatabase(projectId: string, projectName: string, workingDirectory: string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         if (!projectId || !projectName || !workingDirectory) {
@@ -52,17 +61,15 @@ class DatabaseManager {
           resolve();
         });
       } catch (error) {
-        reject(new Error(`Project database initialization error: ${error.message}`));
+        reject(new Error(`Project database initialization error: ${(error as Error).message}`));
       }
     });
   }
 
   /**
    * Open an existing per-project database connection
-   * @param {string} projectWorkingDirectory - The project's working directory
-   * @returns {Promise<void>}
    */
-  async openProjectDatabase(projectWorkingDirectory) {
+  async openProjectDatabase(projectWorkingDirectory: string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         if (!projectWorkingDirectory) {
@@ -90,16 +97,15 @@ class DatabaseManager {
           resolve();
         });
       } catch (error) {
-        reject(new Error(`Project database open error: ${error.message}`));
+        reject(new Error(`Project database open error: ${(error as Error).message}`));
       }
     });
   }
 
   /**
    * Close the current project database connection
-   * @returns {Promise<void>}
    */
-  async closeProjectDatabase() {
+  async closeProjectDatabase(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         this.isInitialized = false;
@@ -125,12 +131,8 @@ class DatabaseManager {
   /**
    * Create and initialize the complete per-project database schema
    * This method combines schema creation and initial project data insertion
-   * @param {string} projectId - The project ID
-   * @param {string} projectName - The project name
-   * @param {string} workingDirectory - The project's working directory
-   * @returns {Promise<void>}
    */
-  async createProjectSchema(projectId, projectName, workingDirectory) {
+  async createProjectSchema(projectId: string, projectName: string, workingDirectory: string): Promise<void> {
     if (!this.isInitialized) {
       throw new Error('Database must be initialized before creating schema');
     }
@@ -148,9 +150,8 @@ class DatabaseManager {
   /**
    * Migrate the database schema to the latest version
    * This method handles schema updates and migrations for existing databases
-   * @returns {Promise<void>}
    */
-  async migrateSchema() {
+  async migrateSchema(): Promise<void> {
     if (!this.isInitialized) {
       throw new Error('Database must be initialized before migrating schema');
     }
@@ -180,9 +181,8 @@ class DatabaseManager {
 
   /**
    * Get the current schema version of the database
-   * @returns {Promise<number>} Schema version number
    */
-  async getSchemaVersion() {
+  async getSchemaVersion(): Promise<number> {
     try {
       // Check if we have a schema_version table (for future use)
       const result = await this.executeQuery(
@@ -205,10 +205,8 @@ class DatabaseManager {
 
   /**
    * Set the schema version in the database
-   * @param {number} version - The schema version to set
-   * @returns {Promise<void>}
    */
-  async setSchemaVersion(version) {
+  async setSchemaVersion(version: number): Promise<void> {
     if (!this.isInitialized) {
       throw new Error('Database must be initialized before setting schema version');
     }
@@ -230,10 +228,8 @@ class DatabaseManager {
 
   /**
    * Get the path where the project database file should be stored
-   * @param {string} workingDirectory - The project's working directory
-   * @returns {string} Database file path
    */
-  getDatabasePath(workingDirectory) {
+  getDatabasePath(workingDirectory?: string): string {
     if (!workingDirectory) {
       workingDirectory = this.projectWorkingDirectory;
     }
@@ -247,10 +243,8 @@ class DatabaseManager {
 
   /**
    * Ensure the .digr folder exists in the project's working directory
-   * @param {string} workingDirectory - The project's working directory
-   * @returns {boolean} True if folder exists or was created successfully
    */
-  ensureDigrFolder(workingDirectory) {
+  ensureDigrFolder(workingDirectory: string): boolean {
     try {
       const digrPath = path.join(workingDirectory, '.digr');
       
@@ -261,18 +255,15 @@ class DatabaseManager {
       // Verify the folder was created and is accessible
       return fs.existsSync(digrPath) && fs.statSync(digrPath).isDirectory();
     } catch (error) {
-      console.error(`Failed to create .digr folder: ${error.message}`);
+      console.error(`Failed to create .digr folder: ${(error as Error).message}`);
       return false;
     }
   }
 
   /**
    * Execute a SQL query with optional parameters
-   * @param {string} sql - SQL query string
-   * @param {Array} params - Query parameters (optional)
-   * @returns {Promise<any>} Query results
    */
-  async executeQuery(sql, params = []) {
+  async executeQuery(sql: string, params: any[] = []): Promise<any[]> {
     return new Promise((resolve, reject) => {
       if (!this.isInitialized || !this.db) {
         reject(new Error('Database not initialized'));
@@ -291,11 +282,8 @@ class DatabaseManager {
 
   /**
    * Execute a SQL query that doesn't return results (INSERT, UPDATE, DELETE)
-   * @param {string} sql - SQL query string
-   * @param {Array} params - Query parameters (optional)
-   * @returns {Promise<object>} Result with lastID and changes count
    */
-  async executeNonQuery(sql, params = []) {
+  async executeNonQuery(sql: string, params: any[] = []): Promise<DatabaseResult> {
     return new Promise((resolve, reject) => {
       if (!this.isInitialized || !this.db) {
         reject(new Error('Database not initialized'));
@@ -317,10 +305,8 @@ class DatabaseManager {
 
   /**
    * Execute multiple SQL statements in a transaction
-   * @param {Array<{sql: string, params: Array}>} statements - Array of SQL statements with parameters
-   * @returns {Promise<Array>} Array of results for each statement
    */
-  async executeTransaction(statements) {
+  async executeTransaction(statements: TransactionStatement[]): Promise<DatabaseResult[]> {
     return new Promise((resolve, reject) => {
       if (!this.isInitialized || !this.db) {
         reject(new Error('Database not initialized'));
@@ -332,7 +318,7 @@ class DatabaseManager {
       db.serialize(() => {
         db.run('BEGIN TRANSACTION');
 
-        const results = [];
+        const results: DatabaseResult[] = [];
         let completed = 0;
         let hasError = false;
 
@@ -378,19 +364,17 @@ class DatabaseManager {
 
   /**
    * Check if the database connection is active
-   * @returns {boolean} True if database is initialized and connected
    */
-  isConnected() {
+  isConnected(): boolean {
     return this.isInitialized && this.db !== null;
   }
 
   /**
    * Initialize the per-project database schema
    * Creates the project_info, source_folders, and views tables for this specific project
-   * @returns {Promise<void>}
    */
-  async initializeSchema() {
-    const schemaStatements = [
+  private async initializeSchema(): Promise<void> {
+    const schemaStatements: TransactionStatement[] = [
       {
         sql: `CREATE TABLE IF NOT EXISTS project_info (
           id TEXT PRIMARY KEY,
@@ -423,9 +407,8 @@ class DatabaseManager {
 
   /**
    * Validate that the per-project database schema exists and is correct
-   * @returns {Promise<boolean>} True if schema is valid
    */
-  async validateSchema() {
+  private async validateSchema(): Promise<boolean> {
     try {
       const requiredTables = ['project_info', 'source_folders', 'views'];
 
@@ -479,11 +462,8 @@ class DatabaseManager {
 
   /**
    * Create a dynamic data table for a view
-   * @param {string} viewId - The view ID
-   * @param {Array<{name: string, type: string}>} columns - Column definitions
-   * @returns {Promise<void>}
    */
-  async createDataTable(viewId, columns) {
+  async createDataTable(viewId: string, columns: ColumnSchema[]): Promise<void> {
     if (!viewId || !columns || columns.length === 0) {
       throw new Error('Invalid parameters for data table creation');
     }
@@ -500,13 +480,13 @@ class DatabaseManager {
     ];
 
     columns.forEach(col => {
-      if (!col.name || !col.type) {
+      if (!col.columnName || !col.dataType) {
         throw new Error('Column must have name and type');
       }
 
       // Sanitize column name to prevent SQL injection
-      const sanitizedName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
-      const validType = ['TEXT', 'INTEGER', 'REAL'].includes(col.type.toUpperCase()) ? col.type.toUpperCase() : 'TEXT';
+      const sanitizedName = col.columnName.replace(/[^a-zA-Z0-9_]/g, '_');
+      const validType = ['TEXT', 'INTEGER', 'REAL'].includes(col.dataType.toUpperCase()) ? col.dataType.toUpperCase() : 'TEXT';
 
       columnDefs.push(`${sanitizedName} ${validType}`);
     });
@@ -518,10 +498,8 @@ class DatabaseManager {
 
   /**
    * Drop a dynamic data table for a view
-   * @param {string} viewId - The view ID
-   * @returns {Promise<void>}
    */
-  async dropDataTable(viewId) {
+  async dropDataTable(viewId: string): Promise<void> {
     if (!viewId) {
       throw new Error('View ID is required');
     }
@@ -534,10 +512,8 @@ class DatabaseManager {
 
   /**
    * Get the schema information for a data table
-   * @param {string} viewId - The view ID
-   * @returns {Promise<Array>} Array of column information
    */
-  async getDataTableSchema(viewId) {
+  async getDataTableSchema(viewId: string): Promise<any[]> {
     if (!viewId) {
       throw new Error('View ID is required');
     }
@@ -550,7 +526,7 @@ class DatabaseManager {
       const columns = await this.executeQuery(`PRAGMA table_info(${tableName})`);
       return columns.filter(col => !col.name.startsWith('_')); // Filter out internal columns
     } catch (error) {
-      if (error.message.includes('no such table')) {
+      if ((error as Error).message.includes('no such table')) {
         return [];
       }
       throw error;
@@ -559,10 +535,8 @@ class DatabaseManager {
 
   /**
    * Check if a data table exists for a view
-   * @param {string} viewId - The view ID
-   * @returns {Promise<boolean>} True if table exists
    */
-  async dataTableExists(viewId) {
+  async dataTableExists(viewId: string): Promise<boolean> {
     if (!viewId) {
       return false;
     }
@@ -584,9 +558,8 @@ class DatabaseManager {
 
   /**
    * Close the database connection
-   * @returns {Promise<void>}
    */
-  async closeDatabase() {
+  async closeDatabase(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         resolve();
@@ -606,5 +579,3 @@ class DatabaseManager {
     });
   }
 }
-
-module.exports = DatabaseManager;

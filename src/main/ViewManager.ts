@@ -1,43 +1,43 @@
-const { v4: uuidv4 } = require('uuid');
-const DatabaseManager = require('./DatabaseManager');
+import { v4 as uuidv4 } from 'uuid';
+import { View, QueryModel } from '../types';
+import { DatabaseManager } from './DatabaseManager';
+
+interface ViewUpdateData {
+  name?: string;
+  lastQuery?: QueryModel | null;
+}
 
 /**
  * ViewManager handles view CRUD operations with per-project database integration.
  * Each project maintains its own SQLite database with views stored in the project's .digr folder.
  * This provides project-level data isolation and portability.
  */
-class ViewManager {
-  constructor() {
-    this.projectDatabases = new Map(); // Cache of DatabaseManager instances by project working directory
-    this.isInitialized = false;
-  }
+export class ViewManager {
+  private projectDatabases: Map<string, DatabaseManager> = new Map();
+  private isInitialized: boolean = false;
 
   /**
    * Initialize the view manager
-   * @returns {Promise<void>}
    */
-  async initialize() {
+  async initialize(): Promise<void> {
     try {
       this.isInitialized = true;
     } catch (error) {
-      throw new Error(`Failed to initialize ViewManager: ${error.message}`);
+      throw new Error(`Failed to initialize ViewManager: ${(error as Error).message}`);
     }
   }
 
   /**
    * Get or create a DatabaseManager instance for a project
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @returns {Promise<DatabaseManager>} DatabaseManager instance
-   * @private
    */
-  async _getProjectDatabase(projectWorkingDirectory) {
+  private async _getProjectDatabase(projectWorkingDirectory: string): Promise<DatabaseManager> {
     if (!projectWorkingDirectory || typeof projectWorkingDirectory !== 'string') {
       throw new Error('Project working directory must be a non-empty string');
     }
 
     // Check if we already have a database manager for this project
     if (this.projectDatabases.has(projectWorkingDirectory)) {
-      const dbManager = this.projectDatabases.get(projectWorkingDirectory);
+      const dbManager = this.projectDatabases.get(projectWorkingDirectory)!;
       if (dbManager.isConnected()) {
         return dbManager;
       }
@@ -55,11 +55,15 @@ class ViewManager {
 
   /**
    * Create a new view within a project
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @param {string} viewName - Name for the new view
-   * @returns {Promise<Object>} Created view object
    */
-  async createView(projectWorkingDirectory, viewName) {
+  async createView(projectWorkingDirectory: string, viewName: string): Promise<View> {
+    return this.createViewInProject(projectWorkingDirectory, viewName);
+  }
+
+  /**
+   * Create a new view within a project using working directory
+   */
+  async createViewInProject(projectWorkingDirectory: string, viewName: string): Promise<View> {
     this._validateInitialized();
     this._validateViewName(viewName);
 
@@ -73,12 +77,13 @@ class ViewManager {
       }
 
       // Create view object
-      const view = {
+      const view: View = {
         id: uuidv4(),
+        projectId: '', // Would be set by caller
         name: viewName.trim(),
         createdDate: new Date(),
         lastModified: new Date(),
-        lastQuery: null
+        tableSchema: []
       };
 
       // Save to project database
@@ -86,25 +91,22 @@ class ViewManager {
         `INSERT INTO views (id, name, created_date, last_modified, last_query) 
          VALUES (?, ?, ?, ?, ?)`,
         [view.id, view.name, view.createdDate.toISOString(), 
-         view.lastModified.toISOString(), view.lastQuery]
+         view.lastModified.toISOString(), null]
       );
 
       return view;
     } catch (error) {
-      if (error.message.includes('already exists')) {
+      if ((error as Error).message.includes('already exists')) {
         throw error;
       }
-      throw new Error(`Failed to create view: ${error.message}`);
+      throw new Error(`Failed to create view: ${(error as Error).message}`);
     }
   }
 
   /**
    * Get a view by ID from a project
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @param {string} viewId - View ID to retrieve
-   * @returns {Promise<Object|null>} View object or null if not found
    */
-  async getView(projectWorkingDirectory, viewId) {
+  async getView(projectWorkingDirectory: string, viewId: string): Promise<View | null> {
     this._validateInitialized();
     
     if (!viewId || typeof viewId !== 'string') {
@@ -126,22 +128,31 @@ class ViewManager {
       const view = results[0];
       return {
         id: view.id,
+        projectId: '', // Would need to be determined from context
         name: view.name,
         createdDate: new Date(view.created_date),
         lastModified: new Date(view.last_modified),
-        lastQuery: view.last_query ? JSON.parse(view.last_query) : null
+        lastQuery: view.last_query ? JSON.parse(view.last_query) : undefined,
+        tableSchema: [] // Would be populated from data table schema
       };
     } catch (error) {
-      throw new Error(`Failed to get view: ${error.message}`);
+      throw new Error(`Failed to get view: ${(error as Error).message}`);
     }
   }
 
   /**
    * Get all views for a project
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @returns {Promise<Array>} Array of view objects
    */
-  async getViewsForProject(projectWorkingDirectory) {
+  async getViews(projectId: string): Promise<View[]> {
+    this._validateInitialized();
+    // This method signature matches the design, but needs project working directory
+    throw new Error('getViews method needs to be implemented with project working directory lookup');
+  }
+
+  /**
+   * Get all views for a project using working directory
+   */
+  async getViewsForProject(projectWorkingDirectory: string): Promise<View[]> {
     this._validateInitialized();
 
     try {
@@ -153,26 +164,22 @@ class ViewManager {
 
       return results.map(view => ({
         id: view.id,
+        projectId: '', // Would need to be determined from context
         name: view.name,
         createdDate: new Date(view.created_date),
         lastModified: new Date(view.last_modified),
-        lastQuery: view.last_query ? JSON.parse(view.last_query) : null
+        lastQuery: view.last_query ? JSON.parse(view.last_query) : undefined,
+        tableSchema: [] // Would be populated from data table schema
       }));
     } catch (error) {
-      throw new Error(`Failed to get views for project: ${error.message}`);
+      throw new Error(`Failed to get views for project: ${(error as Error).message}`);
     }
   }
 
   /**
    * Update a view
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @param {string} viewId - View ID to update
-   * @param {Object} updates - Updates to apply
-   * @param {string} [updates.name] - New view name
-   * @param {Object} [updates.lastQuery] - Last applied query
-   * @returns {Promise<Object>} Updated view object
    */
-  async updateView(projectWorkingDirectory, viewId, updates) {
+  async updateView(projectWorkingDirectory: string, viewId: string, updates: ViewUpdateData): Promise<View> {
     this._validateInitialized();
     
     if (!viewId || typeof viewId !== 'string') {
@@ -208,7 +215,11 @@ class ViewManager {
       }
 
       if (updates.lastQuery !== undefined) {
-        updatedView.lastQuery = updates.lastQuery;
+        if (updates.lastQuery === null) {
+          updatedView.lastQuery = undefined;
+        } else {
+          updatedView.lastQuery = updates.lastQuery;
+        }
       }
 
       updatedView.lastModified = new Date();
@@ -226,20 +237,24 @@ class ViewManager {
 
       return updatedView;
     } catch (error) {
-      if (error.message.includes('not found') || error.message.includes('already exists')) {
+      if ((error as Error).message.includes('not found') || (error as Error).message.includes('already exists')) {
         throw error;
       }
-      throw new Error(`Failed to update view: ${error.message}`);
+      throw new Error(`Failed to update view: ${(error as Error).message}`);
     }
   }
 
   /**
    * Delete a view and its associated data table
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @param {string} viewId - View ID to delete
-   * @returns {Promise<boolean>} True if view was deleted
    */
-  async deleteView(projectWorkingDirectory, viewId) {
+  async deleteView(projectWorkingDirectory: string, viewId: string): Promise<boolean> {
+    return this.deleteViewInProject(projectWorkingDirectory, viewId);
+  }
+
+  /**
+   * Delete a view and its associated data table using working directory
+   */
+  async deleteViewInProject(projectWorkingDirectory: string, viewId: string): Promise<boolean> {
     this._validateInitialized();
     
     if (!viewId || typeof viewId !== 'string') {
@@ -256,11 +271,16 @@ class ViewManager {
       }
 
       // Delete associated data table first (if it exists)
-      try {
-        await dbManager.dropDataTable(viewId);
-      } catch (error) {
-        // Ignore errors if data table doesn't exist
-        console.warn(`Warning: Could not drop data table for view ${viewId}: ${error.message}`);
+      const hasDataTable = await dbManager.dataTableExists(viewId);
+      if (hasDataTable) {
+        try {
+          await dbManager.dropDataTable(viewId);
+        } catch (error) {
+          // Only log warning in non-test environments
+          if (process.env['NODE_ENV'] !== 'test') {
+            console.warn(`Warning: Could not drop data table for view ${viewId}: ${(error as Error).message}`);
+          }
+        }
       }
 
       // Delete view record
@@ -271,18 +291,14 @@ class ViewManager {
 
       return result.changes > 0;
     } catch (error) {
-      throw new Error(`Failed to delete view: ${error.message}`);
+      throw new Error(`Failed to delete view: ${(error as Error).message}`);
     }
   }
 
   /**
    * Check if a view name exists within a project
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @param {string} viewName - View name to check
-   * @param {string} [excludeViewId] - View ID to exclude from check (for updates)
-   * @returns {Promise<boolean>} True if name exists
    */
-  async viewNameExists(projectWorkingDirectory, viewName, excludeViewId = null) {
+  async viewNameExists(projectWorkingDirectory: string, viewName: string, excludeViewId?: string): Promise<boolean> {
     this._validateInitialized();
     this._validateViewName(viewName);
 
@@ -290,7 +306,7 @@ class ViewManager {
       const dbManager = await this._getProjectDatabase(projectWorkingDirectory);
 
       let query = 'SELECT COUNT(*) as count FROM views WHERE LOWER(name) = LOWER(?)';
-      let params = [viewName.trim()];
+      let params: any[] = [viewName.trim()];
 
       if (excludeViewId) {
         query += ' AND id != ?';
@@ -300,18 +316,14 @@ class ViewManager {
       const results = await dbManager.executeQuery(query, params);
       return results[0].count > 0;
     } catch (error) {
-      throw new Error(`Failed to check view name existence: ${error.message}`);
+      throw new Error(`Failed to check view name existence: ${(error as Error).message}`);
     }
   }
 
   /**
    * Check if a view name is available within a project
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @param {string} viewName - View name to check
-   * @param {string} [excludeViewId] - View ID to exclude from check
-   * @returns {Promise<boolean>} True if name is available
    */
-  async isViewNameAvailable(projectWorkingDirectory, viewName, excludeViewId = null) {
+  async isViewNameAvailable(projectWorkingDirectory: string, viewName: string, excludeViewId?: string): Promise<boolean> {
     this._validateInitialized();
     this._validateViewName(viewName);
 
@@ -319,17 +331,14 @@ class ViewManager {
       const exists = await this.viewNameExists(projectWorkingDirectory, viewName, excludeViewId);
       return !exists;
     } catch (error) {
-      throw new Error(`Failed to check view name availability: ${error.message}`);
+      throw new Error(`Failed to check view name availability: ${(error as Error).message}`);
     }
   }
 
   /**
    * Get the data table schema for a view
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @param {string} viewId - View ID
-   * @returns {Promise<Array>} Array of column information
    */
-  async getViewDataSchema(projectWorkingDirectory, viewId) {
+  async getViewDataSchema(projectWorkingDirectory: string, viewId: string): Promise<any[]> {
     this._validateInitialized();
     
     if (!viewId || typeof viewId !== 'string') {
@@ -340,17 +349,14 @@ class ViewManager {
       const dbManager = await this._getProjectDatabase(projectWorkingDirectory);
       return await dbManager.getDataTableSchema(viewId);
     } catch (error) {
-      throw new Error(`Failed to get view data schema: ${error.message}`);
+      throw new Error(`Failed to get view data schema: ${(error as Error).message}`);
     }
   }
 
   /**
    * Check if a view has an associated data table
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @param {string} viewId - View ID
-   * @returns {Promise<boolean>} True if data table exists
    */
-  async viewHasDataTable(projectWorkingDirectory, viewId) {
+  async viewHasDataTable(projectWorkingDirectory: string, viewId: string): Promise<boolean> {
     this._validateInitialized();
     
     if (!viewId || typeof viewId !== 'string') {
@@ -361,43 +367,56 @@ class ViewManager {
       const dbManager = await this._getProjectDatabase(projectWorkingDirectory);
       return await dbManager.dataTableExists(viewId);
     } catch (error) {
-      throw new Error(`Failed to check if view has data table: ${error.message}`);
+      throw new Error(`Failed to check if view has data table: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Close database connections for a specific project
-   * @param {string} projectWorkingDirectory - Project's working directory
-   * @returns {Promise<void>}
+   * Save views (placeholder for interface compatibility)
    */
-  async closeProjectDatabase(projectWorkingDirectory) {
+  async saveViews(): Promise<void> {
+    this._validateInitialized();
+    // Views are automatically saved to per-project databases, no global save needed
+  }
+
+  /**
+   * Load views (placeholder for interface compatibility)
+   */
+  async loadViews(): Promise<void> {
+    this._validateInitialized();
+    // Views are loaded on-demand from per-project databases, no global load needed
+  }
+
+  /**
+   * Close database connections for a specific project
+   */
+  async closeProjectDatabase(projectWorkingDirectory: string): Promise<void> {
     if (!projectWorkingDirectory || typeof projectWorkingDirectory !== 'string') {
       return;
     }
 
     try {
       if (this.projectDatabases.has(projectWorkingDirectory)) {
-        const dbManager = this.projectDatabases.get(projectWorkingDirectory);
+        const dbManager = this.projectDatabases.get(projectWorkingDirectory)!;
         await dbManager.closeProjectDatabase();
         this.projectDatabases.delete(projectWorkingDirectory);
       }
     } catch (error) {
-      console.warn(`Warning: Failed to close project database for ${projectWorkingDirectory}: ${error.message}`);
+      console.warn(`Warning: Failed to close project database for ${projectWorkingDirectory}: ${(error as Error).message}`);
     }
   }
 
   /**
    * Close all database connections and cleanup resources
-   * @returns {Promise<void>}
    */
-  async close() {
+  async close(): Promise<void> {
     try {
       // Close all cached database connections
-      const closePromises = [];
+      const closePromises: Promise<void>[] = [];
       for (const [projectDir, dbManager] of this.projectDatabases) {
         closePromises.push(
           dbManager.closeProjectDatabase().catch(error => 
-            console.warn(`Warning: Failed to close database for ${projectDir}: ${error.message}`)
+            console.warn(`Warning: Failed to close database for ${projectDir}: ${(error as Error).message}`)
           )
         );
       }
@@ -406,16 +425,15 @@ class ViewManager {
       this.projectDatabases.clear();
       this.isInitialized = false;
     } catch (error) {
-      console.warn(`Warning: Error during ViewManager cleanup: ${error.message}`);
+      console.warn(`Warning: Error during ViewManager cleanup: ${(error as Error).message}`);
       this.isInitialized = false;
     }
   }
 
   /**
    * Validate that the view manager is initialized
-   * @private
    */
-  _validateInitialized() {
+  private _validateInitialized(): void {
     if (!this.isInitialized) {
       throw new Error('ViewManager not initialized. Call initialize() first.');
     }
@@ -423,10 +441,8 @@ class ViewManager {
 
   /**
    * Validate view name
-   * @param {string} name - View name to validate
-   * @private
    */
-  _validateViewName(name) {
+  private _validateViewName(name: string): void {
     if (name === null || name === undefined || typeof name !== 'string') {
       throw new Error('View name must be a non-empty string');
     }
@@ -447,5 +463,3 @@ class ViewManager {
     }
   }
 }
-
-module.exports = ViewManager;

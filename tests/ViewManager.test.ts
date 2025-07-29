@@ -1,16 +1,16 @@
-const ViewManager = require('../src/main/ViewManager');
-const DatabaseManager = require('../src/main/DatabaseManager');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+import { ViewManager } from '../src/main/ViewManager';
+import { DatabaseManager } from '../src/main/DatabaseManager';
+import * as fs from 'fs';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 // Mock the DatabaseManager
 jest.mock('../src/main/DatabaseManager');
 
 describe('ViewManager', () => {
-  let viewManager;
-  let mockDbManager;
-  let testProjectDir;
+  let viewManager: ViewManager;
+  let mockDbManager: any;
+  let testProjectDir: string;
 
   beforeEach(() => {
     // Reset all mocks
@@ -22,17 +22,17 @@ describe('ViewManager', () => {
     // Create mock DatabaseManager instance
     mockDbManager = {
       isConnected: jest.fn().mockReturnValue(true),
-      openProjectDatabase: jest.fn().mockResolvedValue(),
-      closeProjectDatabase: jest.fn().mockResolvedValue(),
+      openProjectDatabase: jest.fn().mockResolvedValue(undefined),
+      closeProjectDatabase: jest.fn().mockResolvedValue(undefined),
       executeQuery: jest.fn(),
       executeNonQuery: jest.fn(),
-      dropDataTable: jest.fn().mockResolvedValue(),
+      dropDataTable: jest.fn().mockResolvedValue(undefined),
       getDataTableSchema: jest.fn().mockResolvedValue([]),
       dataTableExists: jest.fn().mockResolvedValue(false)
     };
     
     // Mock DatabaseManager constructor
-    DatabaseManager.mockImplementation(() => mockDbManager);
+    (DatabaseManager as jest.MockedClass<typeof DatabaseManager>).mockImplementation(() => mockDbManager as any);
     
     testProjectDir = '/test/project/dir';
   });
@@ -46,7 +46,7 @@ describe('ViewManager', () => {
   describe('initialization', () => {
     test('should initialize successfully', async () => {
       await viewManager.initialize();
-      expect(viewManager.isInitialized).toBe(true);
+      expect((viewManager as any).isInitialized).toBe(true);
     });
 
     test('should throw error when not initialized', async () => {
@@ -73,8 +73,7 @@ describe('ViewManager', () => {
         id: expect.any(String),
         name: viewName,
         createdDate: expect.any(Date),
-        lastModified: expect.any(Date),
-        lastQuery: null
+        lastModified: expect.any(Date)
       });
 
       expect(mockDbManager.executeNonQuery).toHaveBeenCalledWith(
@@ -100,7 +99,7 @@ describe('ViewManager', () => {
       await expect(viewManager.createView(testProjectDir, ''))
         .rejects.toThrow('View name cannot be empty or only whitespace');
 
-      await expect(viewManager.createView(testProjectDir, null))
+      await expect(viewManager.createView(testProjectDir, null as any))
         .rejects.toThrow('View name must be a non-empty string');
 
       await expect(viewManager.createView(testProjectDir, 'a'.repeat(256)))
@@ -114,7 +113,7 @@ describe('ViewManager', () => {
       await expect(viewManager.createView('', 'Test View'))
         .rejects.toThrow('Project working directory must be a non-empty string');
 
-      await expect(viewManager.createView(null, 'Test View'))
+      await expect(viewManager.createView(null as any, 'Test View'))
         .rejects.toThrow('Project working directory must be a non-empty string');
     });
   });
@@ -142,8 +141,7 @@ describe('ViewManager', () => {
         id: viewId,
         name: 'Test View',
         createdDate: expect.any(Date),
-        lastModified: expect.any(Date),
-        lastQuery: null
+        lastModified: expect.any(Date)
       });
 
       expect(mockDbManager.executeQuery).toHaveBeenCalledWith(
@@ -163,7 +161,7 @@ describe('ViewManager', () => {
 
     test('should parse lastQuery JSON', async () => {
       const viewId = uuidv4();
-      const lastQuery = { filters: [], sortBy: 'name' };
+      const lastQuery = { viewId: viewId, filters: [], sortBy: 'name' };
       const mockViewData = {
         id: viewId,
         name: 'Test View',
@@ -176,14 +174,15 @@ describe('ViewManager', () => {
 
       const result = await viewManager.getView(testProjectDir, viewId);
 
-      expect(result.lastQuery).toEqual(lastQuery);
+      expect(result).not.toBeNull();
+      expect(result!.lastQuery).toEqual(lastQuery);
     });
 
     test('should validate view ID', async () => {
       await expect(viewManager.getView(testProjectDir, ''))
         .rejects.toThrow('View ID must be a non-empty string');
 
-      await expect(viewManager.getView(testProjectDir, null))
+      await expect(viewManager.getView(testProjectDir, null as any))
         .rejects.toThrow('View ID must be a non-empty string');
     });
   });
@@ -216,16 +215,21 @@ describe('ViewManager', () => {
       const result = await viewManager.getViewsForProject(testProjectDir);
 
       expect(result).toHaveLength(2);
-      expect(result[0]).toMatchObject({
-        id: mockViewsData[0].id,
-        name: 'View 1',
-        lastQuery: null
-      });
-      expect(result[1]).toMatchObject({
-        id: mockViewsData[1].id,
-        name: 'View 2',
-        lastQuery: { filters: [] }
-      });
+      expect(result.length).toBeGreaterThan(0);
+      if (result[0]) {
+        expect(result[0]).toMatchObject({
+          id: mockViewsData[0]?.id || '',
+          name: 'View 1',
+          lastQuery: undefined
+        });
+      }
+      if (result[1]) {
+        expect(result[1]).toMatchObject({
+          id: mockViewsData[1]?.id || '',
+          name: 'View 2',
+          lastQuery: { filters: [] }
+        });
+      }
 
       expect(mockDbManager.executeQuery).toHaveBeenCalledWith(
         'SELECT * FROM views ORDER BY last_modified DESC'
@@ -285,7 +289,10 @@ describe('ViewManager', () => {
         last_query: null
       };
 
-      const newQuery = { filters: [{ column: 'name', operator: 'equals', value: 'test' }] };
+      const newQuery = { 
+        viewId: viewId, 
+        filters: [{ column: 'name', operator: 'equals' as const, value: 'test', dataType: 'TEXT' as const }] 
+      };
 
       // Mock getView call
       mockDbManager.executeQuery.mockResolvedValueOnce([existingView]);
@@ -336,7 +343,7 @@ describe('ViewManager', () => {
       await expect(viewManager.updateView(testProjectDir, '', { name: 'New Name' }))
         .rejects.toThrow('View ID must be a non-empty string');
 
-      await expect(viewManager.updateView(testProjectDir, viewId, null))
+      await expect(viewManager.updateView(testProjectDir, viewId, null as any))
         .rejects.toThrow('Updates must be an object');
     });
   });
@@ -358,6 +365,8 @@ describe('ViewManager', () => {
 
       // Mock getView call
       mockDbManager.executeQuery.mockResolvedValueOnce([existingView]);
+      // Mock dataTableExists to return true for this test
+      mockDbManager.dataTableExists.mockResolvedValueOnce(true);
       // Mock delete query
       mockDbManager.executeNonQuery.mockResolvedValueOnce({ changes: 1 });
 
@@ -413,7 +422,7 @@ describe('ViewManager', () => {
       await expect(viewManager.deleteView(testProjectDir, ''))
         .rejects.toThrow('View ID must be a non-empty string');
 
-      await expect(viewManager.deleteView(testProjectDir, null))
+      await expect(viewManager.deleteView(testProjectDir, null as any))
         .rejects.toThrow('View ID must be a non-empty string');
     });
   });
@@ -595,7 +604,7 @@ describe('ViewManager', () => {
       await viewManager.close();
 
       expect(mockDbManager.closeProjectDatabase).toHaveBeenCalledTimes(2);
-      expect(viewManager.isInitialized).toBe(false);
+      expect((viewManager as any).isInitialized).toBe(false);
     });
   });
 

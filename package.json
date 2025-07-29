@@ -2,9 +2,14 @@
   "name": "project-manager",
   "version": "1.0.0",
   "description": "A project management desktop application for organizing projects with source data folders",
-  "main": "main.js",
+  "main": "dist/main.js",
   "homepage": "./",
   "scripts": {
+    "build:ts": "tsc",
+    "build:ts:watch": "tsc --watch",
+    "prebuild": "npm run build:ts",
+    "prestart": "npm run build:ts",
+    "predev": "npm run build:ts",
     "start": "electron .",
     "dev": "electron . --dev",
     "build": "electron-builder",
@@ -12,14 +17,21 @@
     "build:app": "electron-builder --mac dir",
     "dist": "electron-builder --publish=never",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "clean": "rm -rf dist"
   },
   "build": {
     "appId": "com.yourcompany.project-manager",
     "productName": "Project Manager",
     "directories": {
-      "output": "dist"
+      "output": "build"
     },
+    "files": [
+      "dist/**/*",
+      "index.html",
+      "node_modules/**/*",
+      "package.json"
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -55,14 +67,35 @@
     }
   },
   "devDependencies": {
+    "@types/electron": "^1.6.12",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.1.0",
+    "@types/uuid": "^10.0.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
-    "jest": "^30.0.5"
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   },
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
     "sqlite3": "^5.1.7",
     "uuid": "^11.1.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/tests"
+    ],
+    "testMatch": [
+      "**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/**/*.d.ts"
+    ]
   }
 }
