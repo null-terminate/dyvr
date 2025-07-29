@@ -422,6 +422,171 @@
       pointer-events: none;
     }
 
+    /* Project detail styles */
+    .project-detail-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .project-info-section,
+    .source-folders-section,
+    .views-section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 12px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .info-card {
+      background-color: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .info-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .info-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-label {
+      font-weight: 500;
+      color: #495057;
+      min-width: 140px;
+      margin-right: 12px;
+    }
+
+    .info-value {
+      color: #333;
+      flex: 1;
+    }
+
+    .info-value-with-action {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .source-folders-list,
+    .views-list {
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      background-color: #fff;
+    }
+
+    .folder-item,
+    .view-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e9ecef;
+      transition: background-color 0.15s ease;
+    }
+
+    .folder-item:last-child,
+    .view-item:last-child {
+      border-bottom: none;
+    }
+
+    .folder-item:hover,
+    .view-item:hover {
+      background-color: #f8f9fa;
+    }
+
+    .folder-icon,
+    .view-icon {
+      font-size: 16px;
+      margin-right: 12px;
+      opacity: 0.7;
+    }
+
+    .folder-info,
+    .view-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .folder-path,
+    .view-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .folder-added,
+    .view-created {
+      font-size: 11px;
+      color: #666;
+    }
+
+    .folder-actions,
+    .view-actions {
+      display: flex;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .folder-item:hover .folder-actions,
+    .view-item:hover .view-actions {
+      opacity: 1;
+    }
+
+    .btn-danger {
+      background-color: #dc3545;
+      border-color: #dc3545;
+      color: #fff;
+    }
+
+    .btn-danger:hover {
+      background-color: #c82333;
+      border-color: #bd2130;
+    }
+
+    .empty-list {
+      padding: 32px 16px;
+      text-align: center;
+      color: #666;
+    }
+
+    .empty-list-icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+      opacity: 0.3;
+    }
+
+    .empty-list-title {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: #333;
+    }
+
+    .empty-list-description {
+      font-size: 12px;
+    }
+
     /* Scrollbar styling for webkit browsers */
     ::-webkit-scrollbar {
       width: 8px;
@@ -559,6 +724,119 @@
     </div>
   </div>
 
+  <!-- Add Source Folder Modal -->
+  <div class="modal-overlay hidden" id="add-source-folder-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Add Source Data Folder</div>
+      </div>
+      <div class="modal-body">
+        <form id="add-source-folder-form">
+          <div class="form-group">
+            <label class="form-label" for="source-folder-path">Folder Path</label>
+            <div class="file-picker">
+              <input type="text" class="form-input file-picker-input" id="source-folder-path"
+                placeholder="Select source data folder" readonly required>
+              <button type="button" class="btn btn-secondary" id="browse-source-folder-btn">
+                Browse...
+              </button>
+            </div>
+            <div class="form-help">
+              Choose a folder containing source data files for this project
+            </div>
+            <div class="form-error hidden" id="source-folder-path-error"></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancel-add-source-folder-btn">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="confirm-add-source-folder-btn" form="add-source-folder-form">
+          Add Folder
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create View Modal -->
+  <div class="modal-overlay hidden" id="create-view-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Create New View</div>
+      </div>
+      <div class="modal-body">
+        <form id="create-view-form">
+          <div class="form-group">
+            <label class="form-label" for="view-name">View Name</label>
+            <input type="text" class="form-input" id="view-name" placeholder="Enter view name" required>
+            <div class="form-help">
+              Choose a descriptive name for this data view
+            </div>
+            <div class="form-error hidden" id="view-name-error"></div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancel-create-view-btn">
+          Cancel
+        </button>
+        <button type="submit" class="btn btn-primary" id="confirm-create-view-btn" form="create-view-form">
+          Create View
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remove Source Folder Confirmation Modal -->
+  <div class="modal-overlay hidden" id="remove-source-folder-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Remove Source Folder</div>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to remove this source folder from the project?</p>
+        <p style="margin-top: 8px; font-size: 12px; color: #666;">
+          <strong>Path:</strong> <span id="remove-source-folder-path"></span>
+        </p>
+        <p style="margin-top: 8px; font-size: 12px; color: #666;">
+          This will only remove the reference from the project. The actual folder and its contents will not be deleted.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancel-remove-source-folder-btn">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-danger" id="confirm-remove-source-folder-btn">
+          Remove Folder
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete View Confirmation Modal -->
+  <div class="modal-overlay hidden" id="delete-view-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">Delete View</div>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete the view "<span id="delete-view-name"></span>"?</p>
+        <p style="margin-top: 8px; font-size: 12px; color: #666;">
+          This will permanently delete the view and all associated data. This action cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancel-delete-view-btn">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-danger" id="confirm-delete-view-btn">
+          Delete View
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Context Menu -->
   <div class="context-menu hidden" id="project-context-menu">
     <div class="context-menu-item" id="context-delete-project">
@@ -613,6 +891,38 @@
       const contextDeleteBtn = document.getElementById('context-delete-project');
       contextDeleteBtn.addEventListener('click', showDeleteProjectModal);
 
+      // Add source folder modal events
+      const cancelAddSourceFolderBtn = document.getElementById('cancel-add-source-folder-btn');
+      const confirmAddSourceFolderBtn = document.getElementById('confirm-add-source-folder-btn');
+      const browseSourceFolderBtn = document.getElementById('browse-source-folder-btn');
+      const addSourceFolderForm = document.getElementById('add-source-folder-form');
+
+      cancelAddSourceFolderBtn.addEventListener('click', hideAddSourceFolderModal);
+      browseSourceFolderBtn.addEventListener('click', browseSourceFolder);
+      addSourceFolderForm.addEventListener('submit', handleAddSourceFolder);
+
+      // Create view modal events
+      const cancelCreateViewBtn = document.getElementById('cancel-create-view-btn');
+      const confirmCreateViewBtn = document.getElementById('confirm-create-view-btn');
+      const createViewForm = document.getElementById('create-view-form');
+
+      cancelCreateViewBtn.addEventListener('click', hideCreateViewModal);
+      createViewForm.addEventListener('submit', handleCreateView);
+
+      // Remove source folder modal events
+      const cancelRemoveSourceFolderBtn = document.getElementById('cancel-remove-source-folder-btn');
+      const confirmRemoveSourceFolderBtn = document.getElementById('confirm-remove-source-folder-btn');
+
+      cancelRemoveSourceFolderBtn.addEventListener('click', hideRemoveSourceFolderModal);
+      confirmRemoveSourceFolderBtn.addEventListener('click', handleRemoveSourceFolder);
+
+      // Delete view modal events
+      const cancelDeleteViewBtn = document.getElementById('cancel-delete-view-btn');
+      const confirmDeleteViewBtn = document.getElementById('confirm-delete-view-btn');
+
+      cancelDeleteViewBtn.addEventListener('click', hideDeleteViewModal);
+      confirmDeleteViewBtn.addEventListener('click', handleDeleteView);
+
       // Close modals and context menu when clicking outside
       document.addEventListener('click', handleDocumentClick);
 
@@ -641,14 +951,42 @@
           name: 'Sample Project',
           workingDirectory: '/Users/example/Documents/sample-project',
           createdDate: new Date('2024-01-15'),
-          lastModified: new Date('2024-01-20')
+          lastModified: new Date('2024-01-20'),
+          sourceFolders: [
+            {
+              id: 'sf1',
+              path: '/Users/example/Documents/sample-project/data',
+              addedDate: new Date('2024-01-16')
+            },
+            {
+              id: 'sf2',
+              path: '/Users/example/Documents/external-data',
+              addedDate: new Date('2024-01-18')
+            }
+          ],
+          views: [
+            {
+              id: 'v1',
+              name: 'Customer Data View',
+              createdDate: new Date('2024-01-17'),
+              lastModified: new Date('2024-01-19')
+            },
+            {
+              id: 'v2',
+              name: 'Sales Analysis',
+              createdDate: new Date('2024-01-19'),
+              lastModified: new Date('2024-01-20')
+            }
+          ]
         },
         {
           id: '2',
           name: 'Another Project',
           workingDirectory: '/Users/example/Documents/another-project',
           createdDate: new Date('2024-01-10'),
-          lastModified: new Date('2024-01-18')
+          lastModified: new Date('2024-01-18'),
+          sourceFolders: [],
+          views: []
         }
       ];
 
@@ -727,18 +1065,64 @@
       contentTitle.textContent = project.name;
       contentSubtitle.textContent = `Working Directory: ${project.workingDirectory}`;
 
+      // Update breadcrumb to show project detail
+      updateBreadcrumb(['Projects', project.name]);
+
       contentBody.innerHTML = `
-        <div style="max-width: 600px;">
-          <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 600;">Project Information</h3>
-          <div style="background: #f8f8f8; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-            <div style="margin-bottom: 8px;"><strong>Name:</strong> ${escapeHtml(project.name)}</div>
-            <div style="margin-bottom: 8px;"><strong>Working Directory:</strong> ${escapeHtml(project.workingDirectory)}</div>
-            <div style="margin-bottom: 8px;"><strong>Created:</strong> ${project.createdDate.toLocaleDateString()}</div>
-            <div><strong>Last Modified:</strong> ${project.lastModified.toLocaleDateString()}</div>
-          </div>
-          <p style="color: #666; font-size: 13px;">
-            This is a placeholder view. Source folder management and view creation will be implemented in future tasks.
-          </p>
+        <div class="project-detail-container">
+          <!-- Project Information Section -->
+          <section class="project-info-section">
+            <h3 class="section-title">Project Information</h3>
+            <div class="info-card">
+              <div class="info-row">
+                <span class="info-label">Name:</span>
+                <span class="info-value">${escapeHtml(project.name)}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Working Directory:</span>
+                <div class="info-value-with-action">
+                  <span class="info-value">${escapeHtml(project.workingDirectory)}</span>
+                  <button class="btn btn-small btn-secondary" onclick="openInExplorer('${escapeHtml(project.workingDirectory)}')">
+                    Open in Explorer
+                  </button>
+                </div>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Created:</span>
+                <span class="info-value">${project.createdDate.toLocaleDateString()}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Last Modified:</span>
+                <span class="info-value">${project.lastModified.toLocaleDateString()}</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Source Data Folders Section -->
+          <section class="source-folders-section">
+            <div class="section-header">
+              <h3 class="section-title">Source Data Folders</h3>
+              <button class="btn btn-primary btn-small" onclick="showAddSourceFolderDialog('${project.id}')">
+                + Add Folder
+              </button>
+            </div>
+            <div class="source-folders-list" id="source-folders-list-${project.id}">
+              ${renderSourceFoldersList(project.sourceFolders || [])}
+            </div>
+          </section>
+
+          <!-- Views Section -->
+          <section class="views-section">
+            <div class="section-header">
+              <h3 class="section-title">Views</h3>
+              <button class="btn btn-primary btn-small" onclick="showCreateViewDialog('${project.id}')">
+                + Create View
+              </button>
+            </div>
+            <div class="views-list" id="views-list-${project.id}">
+              ${renderViewsList(project.views || [])}
+            </div>
+          </section>
         </div>
       `;
     }
@@ -810,13 +1194,379 @@
         name: projectName,
         workingDirectory: workingDirectory,
         createdDate: new Date(),
-        lastModified: new Date()
+        lastModified: new Date(),
+        sourceFolders: [],
+        views: []
       };
 
       projects.push(newProject);
       renderProjectList();
       selectProject(newProject.id);
       hideCreateProjectModal();
+    }
+
+    // Render source folders list
+    function renderSourceFoldersList(sourceFolders) {
+      if (!sourceFolders || sourceFolders.length === 0) {
+        return `
+          <div class="empty-list">
+            <div class="empty-list-icon">📂</div>
+            <div class="empty-list-title">No Source Folders</div>
+            <div class="empty-list-description">Add source data folders to reference external data sources for this project.</div>
+          </div>
+        `;
+      }
+
+      return sourceFolders.map(folder => `
+        <div class="folder-item">
+          <div class="folder-icon">📂</div>
+          <div class="folder-info">
+            <div class="folder-path">${escapeHtml(folder.path)}</div>
+            <div class="folder-added">Added ${folder.addedDate ? new Date(folder.addedDate).toLocaleDateString() : 'Unknown'}</div>
+          </div>
+          <div class="folder-actions">
+            <button class="btn btn-small btn-secondary" onclick="openInExplorer('${escapeHtml(folder.path)}')">
+              Open
+            </button>
+            <button class="btn btn-small btn-danger" onclick="showRemoveSourceFolderDialog('${selectedProjectId}', '${escapeHtml(folder.path)}')">
+              Remove
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Render views list
+    function renderViewsList(views) {
+      if (!views || views.length === 0) {
+        return `
+          <div class="empty-list">
+            <div class="empty-list-icon">📊</div>
+            <div class="empty-list-title">No Views</div>
+            <div class="empty-list-description">Create views to analyze and query the data in your source folders.</div>
+          </div>
+        `;
+      }
+
+      return views.map(view => `
+        <div class="view-item">
+          <div class="view-icon">📊</div>
+          <div class="view-info">
+            <div class="view-name">${escapeHtml(view.name)}</div>
+            <div class="view-created">Created ${view.createdDate ? new Date(view.createdDate).toLocaleDateString() : 'Unknown'}</div>
+          </div>
+          <div class="view-actions">
+            <button class="btn btn-small btn-primary" onclick="openView('${selectedProjectId}', '${view.id}')">
+              Open
+            </button>
+            <button class="btn btn-small btn-danger" onclick="showDeleteViewDialog('${selectedProjectId}', '${view.id}', '${escapeHtml(view.name)}')">
+              Delete
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Show add source folder dialog
+    function showAddSourceFolderDialog(projectId) {
+      const modal = document.getElementById('add-source-folder-modal');
+      modal.classList.remove('hidden');
+
+      // Store project ID for later use
+      modal.dataset.projectId = projectId;
+
+      // Clear form
+      document.getElementById('source-folder-path').value = '';
+      clearFormErrors();
+
+      // Focus on folder path input
+      setTimeout(() => {
+        document.getElementById('source-folder-path').focus();
+      }, 100);
+    }
+
+    // Show create view dialog
+    function showCreateViewDialog(projectId) {
+      const modal = document.getElementById('create-view-modal');
+      modal.classList.remove('hidden');
+
+      // Store project ID for later use
+      modal.dataset.projectId = projectId;
+
+      // Clear form
+      document.getElementById('view-name').value = '';
+      clearFormErrors();
+
+      // Focus on view name input
+      setTimeout(() => {
+        document.getElementById('view-name').focus();
+      }, 100);
+    }
+
+    // Show remove source folder dialog
+    function showRemoveSourceFolderDialog(projectId, folderPath) {
+      const modal = document.getElementById('remove-source-folder-modal');
+      const pathSpan = document.getElementById('remove-source-folder-path');
+
+      modal.classList.remove('hidden');
+      modal.dataset.projectId = projectId;
+      modal.dataset.folderPath = folderPath;
+      pathSpan.textContent = folderPath;
+    }
+
+    // Show delete view dialog
+    function showDeleteViewDialog(projectId, viewId, viewName) {
+      const modal = document.getElementById('delete-view-modal');
+      const nameSpan = document.getElementById('delete-view-name');
+
+      modal.classList.remove('hidden');
+      modal.dataset.projectId = projectId;
+      modal.dataset.viewId = viewId;
+      nameSpan.textContent = viewName;
+    }
+
+    // Open folder in system explorer
+    function openInExplorer(folderPath) {
+      // This would normally use Electron's shell API
+      // For now, we'll just show an alert
+      alert(`Would open folder: ${folderPath}`);
+      console.log('Opening folder in explorer:', folderPath);
+    }
+
+    // Open a view
+    function openView(projectId, viewId) {
+      // This would normally navigate to the data view screen
+      // For now, we'll just show an alert
+      alert(`Would open view: ${viewId} in project: ${projectId}`);
+      console.log('Opening view:', viewId, 'in project:', projectId);
+    }
+
+    // Handle create project form submission
+    function handleCreateProject(e) {
+      e.preventDefault();
+
+      const projectName = document.getElementById('project-name').value.trim();
+      const workingDirectory = document.getElementById('working-directory').value.trim();
+
+      // Validate form
+      let hasErrors = false;
+
+      if (!projectName) {
+        showFieldError('project-name', 'Project name is required');
+        hasErrors = true;
+      } else if (projects.some(p => p.name.toLowerCase() === projectName.toLowerCase())) {
+        showFieldError('project-name', 'A project with this name already exists');
+        hasErrors = true;
+      }
+
+      if (!workingDirectory) {
+        showFieldError('working-directory', 'Working directory is required');
+        hasErrors = true;
+      }
+
+      if (hasErrors) {
+        return;
+      }
+
+      // Create new project
+      const newProject = {
+        id: Date.now().toString(),
+        name: projectName,
+        workingDirectory: workingDirectory,
+        createdDate: new Date(),
+        lastModified: new Date(),
+        sourceFolders: [],
+        views: []
+      };
+
+      projects.push(newProject);
+      renderProjectList();
+      selectProject(newProject.id);
+      hideCreateProjectModal();
+    }
+
+    // Handle add source folder form submission
+    function handleAddSourceFolder(e) {
+      e.preventDefault();
+
+      const modal = document.getElementById('add-source-folder-modal');
+      const projectId = modal.dataset.projectId;
+      const folderPath = document.getElementById('source-folder-path').value.trim();
+
+      // Validate form
+      let hasErrors = false;
+
+      if (!folderPath) {
+        showFieldError('source-folder-path', 'Folder path is required');
+        hasErrors = true;
+      }
+
+      if (hasErrors) {
+        return;
+      }
+
+      // Find the project and add the source folder
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        // Check for duplicates
+        if (project.sourceFolders && project.sourceFolders.some(f => f.path === folderPath)) {
+          showFieldError('source-folder-path', 'This folder is already added to the project');
+          return;
+        }
+
+        // Initialize sourceFolders if it doesn't exist
+        if (!project.sourceFolders) {
+          project.sourceFolders = [];
+        }
+
+        // Add the source folder
+        project.sourceFolders.push({
+          id: Date.now().toString(),
+          path: folderPath,
+          addedDate: new Date()
+        });
+
+        project.lastModified = new Date();
+
+        // Update the UI if this project is currently selected
+        if (selectedProjectId === projectId) {
+          updateContentArea(project);
+        }
+      }
+
+      hideAddSourceFolderModal();
+    }
+
+    // Handle create view form submission
+    function handleCreateView(e) {
+      e.preventDefault();
+
+      const modal = document.getElementById('create-view-modal');
+      const projectId = modal.dataset.projectId;
+      const viewName = document.getElementById('view-name').value.trim();
+
+      // Validate form
+      let hasErrors = false;
+
+      if (!viewName) {
+        showFieldError('view-name', 'View name is required');
+        hasErrors = true;
+      }
+
+      if (hasErrors) {
+        return;
+      }
+
+      // Find the project and add the view
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        // Check for duplicates
+        if (project.views && project.views.some(v => v.name.toLowerCase() === viewName.toLowerCase())) {
+          showFieldError('view-name', 'A view with this name already exists in this project');
+          return;
+        }
+
+        // Initialize views if it doesn't exist
+        if (!project.views) {
+          project.views = [];
+        }
+
+        // Add the view
+        project.views.push({
+          id: Date.now().toString(),
+          name: viewName,
+          createdDate: new Date(),
+          lastModified: new Date()
+        });
+
+        project.lastModified = new Date();
+
+        // Update the UI if this project is currently selected
+        if (selectedProjectId === projectId) {
+          updateContentArea(project);
+        }
+      }
+
+      hideCreateViewModal();
+    }
+
+    // Handle remove source folder
+    function handleRemoveSourceFolder() {
+      const modal = document.getElementById('remove-source-folder-modal');
+      const projectId = modal.dataset.projectId;
+      const folderPath = modal.dataset.folderPath;
+
+      // Find the project and remove the source folder
+      const project = projects.find(p => p.id === projectId);
+      if (project && project.sourceFolders) {
+        project.sourceFolders = project.sourceFolders.filter(f => f.path !== folderPath);
+        project.lastModified = new Date();
+
+        // Update the UI if this project is currently selected
+        if (selectedProjectId === projectId) {
+          updateContentArea(project);
+        }
+      }
+
+      hideRemoveSourceFolderModal();
+    }
+
+    // Handle delete view
+    function handleDeleteView() {
+      const modal = document.getElementById('delete-view-modal');
+      const projectId = modal.dataset.projectId;
+      const viewId = modal.dataset.viewId;
+
+      // Find the project and remove the view
+      const project = projects.find(p => p.id === projectId);
+      if (project && project.views) {
+        project.views = project.views.filter(v => v.id !== viewId);
+        project.lastModified = new Date();
+
+        // Update the UI if this project is currently selected
+        if (selectedProjectId === projectId) {
+          updateContentArea(project);
+        }
+      }
+
+      hideDeleteViewModal();
+    }
+
+    // Hide add source folder modal
+    function hideAddSourceFolderModal() {
+      const modal = document.getElementById('add-source-folder-modal');
+      modal.classList.add('hidden');
+      clearFormErrors();
+    }
+
+    // Hide create view modal
+    function hideCreateViewModal() {
+      const modal = document.getElementById('create-view-modal');
+      modal.classList.add('hidden');
+      clearFormErrors();
+    }
+
+    // Hide remove source folder modal
+    function hideRemoveSourceFolderModal() {
+      const modal = document.getElementById('remove-source-folder-modal');
+      modal.classList.add('hidden');
+    }
+
+    // Hide delete view modal
+    function hideDeleteViewModal() {
+      const modal = document.getElementById('delete-view-modal');
+      modal.classList.add('hidden');
+    }
+
+    // Browse for source folder
+    function browseSourceFolder() {
+      // This would normally use Electron's dialog API
+      // For now, we'll simulate with a prompt
+      const directory = prompt('Enter source folder path:');
+      if (directory) {
+        document.getElementById('source-folder-path').value = directory;
+        clearFieldError('source-folder-path');
+      }
     }
 
     // Show delete project modal
@@ -901,6 +1651,10 @@
       if (e.target.classList.contains('modal-overlay')) {
         hideCreateProjectModal();
         hideDeleteProjectModal();
+        hideAddSourceFolderModal();
+        hideCreateViewModal();
+        hideRemoveSourceFolderModal();
+        hideDeleteViewModal();
       }
     }
 

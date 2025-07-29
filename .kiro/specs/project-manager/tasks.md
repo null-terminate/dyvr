@@ -126,8 +126,8 @@
     - Create project context menu with delete option and confirmation dialog
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 1.6, 2.1, 2.2, 3.1, 3.3_
 
-- [ ] 9. Implement project detail view in main content area
-  - [ ] 9.1 Create project detail screen with source folder management
+- [x] 9. Implement project detail view in main content area
+  - [x] 9.1 Create project detail screen with source folder management
     - Build HTML structure for project details display in main content area
     - Show project name, working directory path, and creation date
     - Implement source folder list with add/remove functionality
@@ -135,7 +135,7 @@
     - Create "Open in Explorer" buttons for working directory and source folders
     - _Requirements: 4.1, 4.2, 4.4, 4.5, 5.1, 5.4, 6.1, 6.3, 6.4, 6.5_
 
-  - [ ] 9.2 Add view management section to project details
+  - [x] 9.2 Add view management section to project details
     - Create views list section within project details
     - Implement "Create View" button and form with validation
     - Add view list with click-to-open functionality
