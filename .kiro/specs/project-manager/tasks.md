@@ -8,33 +8,33 @@
   - _Requirements: 7.1, 12.1_
 
 - [x] 2. Implement SQLite database foundation
-  - [x] 2.1 Create DatabaseManager class with centralized SQLite operations
-    - Implement centralized database initialization and connection management
-    - Create methods for opening, closing, and executing SQL queries
-    - Add error handling for database connection issues
+  - [x] 2.1 Create DatabaseManager class for per-project SQLite operations
+    - Implement per-project database initialization and connection management
+    - Create methods for opening, closing, and executing SQL queries on project databases
+    - Add error handling for database connection issues and .digr folder creation
     - Write unit tests for database connection and basic operations
     - _Requirements: 12.1, 12.4_
 
-  - [x] 2.2 Implement centralized database schema creation
-    - Create SQL scripts for projects, source_folders, and views tables in centralized database
-    - Implement schema migration and initialization in DatabaseManager
-    - Add methods for creating and validating database schema
-    - Write unit tests for schema creation and validation
+  - [x] 2.2 Implement per-project database schema creation
+    - Create SQL scripts for project_info, source_folders, and views tables in each project's database
+    - Implement schema migration and initialization in DatabaseManager for project databases
+    - Add methods for creating and validating per-project database schema
+    - Write unit tests for schema creation and validation in .digr folders
     - _Requirements: 1.2, 4.2, 7.2, 12.1_
 
 - [x] 3. Implement core data persistence layer
-  - [x] 3.1 Create DataPersistence class for centralized data management
-    - Implement methods to save/load projects, source folders, and views using SQLite
+  - [x] 3.1 Create DataPersistence class for global project registry management
+    - Implement methods to save/load global project registry using JSON file
     - Create application data directory management using userData folder
-    - Add data validation and error handling for all operations
-    - Write unit tests for all persistence operations
+    - Add data validation and error handling for registry operations
+    - Write unit tests for global registry persistence operations
     - _Requirements: 12.2, 12.3, 12.5_
 
-  - [x] 3.2 Implement ProjectManager class with centralized database integration
-    - Create project CRUD operations using centralized SQLite database
-    - Implement source folder management with foreign key relationships
-    - Add project validation, duplicate name handling, and working directory validation
-    - Write unit tests for project management operations
+  - [x] 3.2 Implement ProjectManager class with distributed database integration
+    - Create project CRUD operations using per-project .digr databases
+    - Implement source folder management within individual project databases
+    - Add project validation, duplicate name handling, and .digr folder creation
+    - Write unit tests for distributed project management operations
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 3.1, 3.2, 4.1, 4.4, 5.1_
 
 - [ ] 4. Implement view management system
@@ -45,11 +45,11 @@
     - Write unit tests for enhanced dynamic table operations
     - _Requirements: 8.2, 8.3, 9.1, 9.2_
 
-  - [ ] 4.2 Create ViewManager class with database integration
-    - Create ViewManager class that uses DataPersistence for view CRUD operations
-    - Add view name validation and duplicate checking within projects
-    - Implement view deletion with associated data table cleanup
-    - Write unit tests for ViewManager operations
+  - [ ] 4.2 Create ViewManager class with per-project database integration
+    - Create ViewManager class that uses per-project DatabaseManager for view CRUD operations
+    - Add view name validation and duplicate checking within individual project databases
+    - Implement view deletion with associated data table cleanup in project's .digr database
+    - Write unit tests for ViewManager operations with distributed databases
     - _Requirements: 7.1, 7.2, 11.1, 11.3, 11.4_
 
 - [ ] 5. Implement JSON scanning and schema analysis
@@ -61,10 +61,10 @@
     - _Requirements: 8.1, 8.2, 8.4, 8.5_
 
   - [ ] 5.2 Implement data population and batch insertion
-    - Create methods to populate dynamic tables with JSON data
-    - Implement batch insertion for performance with large datasets
+    - Create methods to populate dynamic tables with JSON data in project's .digr database
+    - Implement batch insertion for performance with large datasets in per-project databases
     - Add progress tracking and error reporting for scan operations
-    - Write unit tests for data population and error handling
+    - Write unit tests for data population and error handling with distributed databases
     - _Requirements: 8.2, 8.3, 8.6, 9.3_
 
 - [ ] 6. Implement query system and SQL generation
