@@ -1,7 +1,7 @@
 {
-  "name": "electron-hello-world",
+  "name": "project-manager",
   "version": "1.0.0",
-  "description": "A simple Hello World Electron app",
+  "description": "A project management desktop application for organizing projects with source data folders",
   "main": "main.js",
   "homepage": "./",
   "scripts": {
@@ -10,16 +10,18 @@
     "build": "electron-builder",
     "build:mac": "electron-builder --mac",
     "build:app": "electron-builder --mac dir",
-    "dist": "electron-builder --publish=never"
+    "dist": "electron-builder --publish=never",
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "build": {
-    "appId": "com.yourcompany.electron-hello-world",
-    "productName": "Hello World App",
+    "appId": "com.yourcompany.project-manager",
+    "productName": "Project Manager",
     "directories": {
       "output": "dist"
     },
     "mac": {
-      "category": "public.app-category.utilities",
+      "category": "public.app-category.productivity",
       "target": [
         {
           "target": "dmg",
@@ -31,7 +33,7 @@
       ]
     },
     "dmg": {
-      "title": "Hello World App",
+      "title": "Project Manager",
       "icon": false,
       "window": {
         "width": 540,
@@ -54,7 +56,8 @@
   },
   "devDependencies": {
     "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "jest": "^30.0.5"
   },
   "author": "Your Name",
   "license": "MIT",
