@@ -69,11 +69,14 @@
   "devDependencies": {
     "@types/electron": "^1.6.12",
     "@types/jest": "^30.0.0",
+    "@types/jsdom": "^21.1.7",
     "@types/node": "^24.1.0",
     "@types/uuid": "^10.0.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
     "jest": "^30.0.5",
+    "jest-environment-jsdom": "^30.0.5",
+    "jsdom": "^26.1.0",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
@@ -86,7 +89,7 @@
   },
   "jest": {
     "preset": "ts-jest",
-    "testEnvironment": "node",
+    "testEnvironment": "jsdom",
     "roots": [
       "<rootDir>/tests"
     ],
@@ -96,6 +99,9 @@
     "collectCoverageFrom": [
       "src/**/*.ts",
       "!src/**/*.d.ts"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/tests/setup.ts"
     ]
   }
 }
