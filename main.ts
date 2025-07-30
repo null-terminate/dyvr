@@ -194,6 +194,29 @@ ipcMain.on('load-projects', async () => {
 });
 
 /**
+ * Get a single project by ID
+ */
+ipcMain.handle('get-project', async (event, projectId: string) => {
+  try {
+    console.log(`Received get-project request for ID: ${projectId}`);
+    if (!projectId) {
+      throw new Error('Project ID is required');
+    }
+    
+    const project = await projectManager.getProject(projectId);
+    if (!project) {
+      throw new Error(`Project with ID "${projectId}" not found`);
+    }
+    
+    console.log(`Returning project: ID=${project.id}, Name=${project.name}, Path=${project.workingDirectory}`);
+    return project;
+  } catch (error) {
+    console.error(`Failed to get project ${projectId}:`, error);
+    throw error;
+  }
+});
+
+/**
  * Create a new project
  */
 ipcMain.on('create-project', async (event, data: { name: string; workingDirectory: string }) => {

@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld(
         callback(projects);
       });
     },
+    getProject: (projectId: string) => {
+      return ipcRenderer.invoke('get-project', projectId);
+    },
     createProject: (name: string, workingDirectory: string) => {
       ipcRenderer.send('create-project', { name, workingDirectory });
     },

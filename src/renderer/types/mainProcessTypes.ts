@@ -77,6 +77,7 @@ export interface MainProcessAPI {
   // Project operations
   loadProjects: () => void;
   onProjectsLoaded: (callback: (projects: Project[]) => void) => void;
+  getProject: (projectId: string) => Promise<Project>;
   createProject: (name: string, workingDirectory: string) => void;
   onProjectCreated: (callback: (project: Project) => void) => void;
   deleteProject: (projectId: string) => void;

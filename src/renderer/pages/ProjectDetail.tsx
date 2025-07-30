@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMainProcess } from '../context/MainProcessContext';
+import AddSourceDirectoryModal from '../components/AddSourceDirectoryModal';
 
 interface ProjectDetails {
   id: string;
@@ -21,7 +22,26 @@ const ProjectDetail: React.FC = () => {
   const [project, setProject] = useState<ProjectDetails | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'settings'>('details');
+  const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState<boolean>(false);
   const api = useMainProcess();
+
+  // Function to load a single project
+  const loadProject = async () => {
+    if (!api || !id) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Use the getProject method to fetch only the specific project
+      const projectData = await api.getProject(id);
+      setProject(projectData);
+    } catch (error) {
+      console.error("Failed to load project:", error);
+      setProject(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!api) {
@@ -36,16 +56,15 @@ const ProjectDetail: React.FC = () => {
       return () => {};
     }
 
-    // Set up event listener for projects loaded
-    api.onProjectsLoaded((loadedProjects: any[]) => {
-      // Find the specific project by ID
-      const foundProject = loadedProjects.find(p => p.id === id);
-      if (foundProject) {
-        setProject(foundProject);
-      } else {
-        setProject(null); // Ensure project is null when not found
+    // Load the specific project
+    loadProject();
+    
+    // Listen for source folder added events
+    api.onSourceFolderAdded((data) => {
+      if (data.projectId === id) {
+        // Reload just this project
+        loadProject();
       }
-      setIsLoading(false);
     });
     
     api.onError((error) => {
@@ -53,22 +72,29 @@ const ProjectDetail: React.FC = () => {
       setProject(null); // Ensure project is null on error
     });
     
-    // Request projects to be loaded
-    api.loadProjects();
-    
     // Clean up event listeners
     return () => {
       if (api.removeAllListeners) {
-        api.removeAllListeners('projects-loaded');
+        api.removeAllListeners('source-folder-added');
         api.removeAllListeners('error');
       }
     };
-  }, [id, api]);
+  }, [id, api]); // Remove project from dependencies to avoid infinite loop
 
   const handleAddSourceDirectory = () => {
-    if (api && project) {
-      // In a real app, this would open a dialog to select a directory
-      // and then call the API to add the source folder
+    setIsAddSourceModalOpen(true);
+  };
+
+  const handleSourceDirectorySubmit = (folderPath: string) => {
+    if (api && project && id) {
+      api.addSourceFolder(id, folderPath);
+      setIsAddSourceModalOpen(false);
+    }
+  };
+
+  const handleRevealFolder = (folderPath: string) => {
+    if (api) {
+      api.openFolder(folderPath);
     }
   };
 
@@ -130,10 +156,25 @@ const ProjectDetail: React.FC = () => {
                       marginBottom: '10px',
                       backgroundColor: 'white',
                       borderRadius: '4px',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
                     }}
                   >
-                    {folder.path}
+                    <span>{folder.path}</span>
+                    <button 
+                      onClick={() => handleRevealFolder(folder.path)}
+                      style={{
+                        padding: '5px 10px',
+                        backgroundColor: '#f0f0f0',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Reveal
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -188,6 +229,12 @@ const ProjectDetail: React.FC = () => {
       <div>
         {renderTabContent()}
       </div>
+      
+      <AddSourceDirectoryModal 
+        isOpen={isAddSourceModalOpen}
+        onClose={() => setIsAddSourceModalOpen(false)}
+        onSubmit={handleSourceDirectorySubmit}
+      />
     </div>
   );
 };

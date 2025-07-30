@@ -83,6 +83,17 @@ export class ProjectManager {
             lastModified: new Date()
           };
           
+          // Try to load project data from project.json
+          const projectData = await this.loadProjectJson(projectPath);
+          if (projectData) {
+            // Use data from project.json
+            if (projectData.id) project.id = projectData.id;
+            if (projectData.name) project.name = projectData.name;
+            if (projectData.sourceFolders) project.sourceFolders = projectData.sourceFolders;
+            if (projectData.createdDate) project.createdDate = new Date(projectData.createdDate);
+            if (projectData.lastModified) project.lastModified = new Date(projectData.lastModified);
+          }
+          
           // Add to cache
           this.projectCache.set(project.id, project);
           projects.push(project);
@@ -397,6 +408,56 @@ export class ProjectManager {
   }
 
   /**
+   * Save project data to project.json file in the .digr folder
+   */
+  private async saveProjectJson(project: Project): Promise<void> {
+    try {
+      // Ensure .digr folder exists
+      await this.ensureProjectDigrFolder(project.workingDirectory);
+      
+      // Create project.json file path
+      const projectJsonPath = path.join(project.workingDirectory, '.digr', 'project.json');
+      
+      // Create project data to save
+      const projectData = {
+        id: project.id,
+        name: project.name,
+        sourceFolders: project.sourceFolders,
+        createdDate: project.createdDate,
+        lastModified: new Date()
+      };
+      
+      // Write to project.json file
+      fs.writeFileSync(projectJsonPath, JSON.stringify(projectData, null, 2));
+    } catch (error) {
+      console.error(`Failed to save project.json: ${(error as Error).message}`);
+      throw new Error(`Failed to save project data: ${(error as Error).message}`);
+    }
+  }
+  
+  /**
+   * Load project data from project.json file in the .digr folder
+   */
+  private async loadProjectJson(projectWorkingDirectory: string): Promise<Partial<Project> | null> {
+    try {
+      // Create project.json file path
+      const projectJsonPath = path.join(projectWorkingDirectory, '.digr', 'project.json');
+      
+      // Check if project.json exists
+      if (!fs.existsSync(projectJsonPath)) {
+        return null;
+      }
+      
+      // Read and parse project.json file
+      const projectDataStr = fs.readFileSync(projectJsonPath, 'utf8');
+      return JSON.parse(projectDataStr);
+    } catch (error) {
+      console.error(`Failed to load project.json: ${(error as Error).message}`);
+      return null;
+    }
+  }
+
+  /**
    * Add a source folder to a project
    */
   async addSourceFolder(projectId: string, folderPath: string): Promise<void> {
@@ -467,6 +528,9 @@ export class ProjectManager {
         'INSERT INTO source_folders (id, path, added_date) VALUES (?, ?, ?)',
         [sourceFolder.id, sourceFolder.path, sourceFolder.addedDate.toISOString()]
       );
+      
+      // Save to project.json file
+      await this.saveProjectJson(updatedProject);
     } catch (error) {
       if ((error as Error).message.includes('not found') || 
           (error as Error).message.includes('does not exist') || 
@@ -532,6 +596,9 @@ export class ProjectManager {
         'DELETE FROM source_folders WHERE id = ?',
         [folderToRemove.id]
       );
+      
+      // Save to project.json file
+      await this.saveProjectJson(updatedProject);
     } catch (error) {
       if ((error as Error).message.includes('not found') || 
           (error as Error).message.includes('not added')) {
