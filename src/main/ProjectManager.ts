@@ -83,7 +83,6 @@ export class ProjectManager {
             lastModified: new Date()
           };
           
-          
           // Add to cache
           this.projectCache.set(project.id, project);
           projects.push(project);
