@@ -142,9 +142,26 @@ const ProjectDetail: React.FC = () => {
       case 'files':
         return (
           <div>
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>Source Directories</h3>
-              <button onClick={handleAddSourceDirectory}>Add Source Directory</button>
+              <div>
+                <button 
+                  onClick={handleAddSourceDirectory}
+                  style={{ marginRight: '10px' }}
+                >
+                  Add Source Directory
+                </button>
+                <button 
+                  onClick={() => {
+                    if (api && project) {
+                      api.scanSourceDirectories(project.id);
+                    }
+                  }}
+                  disabled={!project || !project.sourceFolders || project.sourceFolders.length === 0}
+                >
+                  Scan
+                </button>
+              </div>
             </div>
             {project.sourceFolders && project.sourceFolders.length > 0 ? (
               <ul style={{ listStyle: 'none', padding: 0 }}>

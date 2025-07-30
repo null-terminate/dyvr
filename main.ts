@@ -348,6 +348,224 @@ ipcMain.on('open-folder', async (event, folderPath: string) => {
 });
 
 /**
+ * Scan source directories for JSON files and extract data
+ */
+ipcMain.on('scan-source-directories', async (event, projectId: string) => {
+  try {
+    if (!projectId) {
+      throw new Error('Project ID is required');
+    }
+
+    // Get project to access source folders
+    const project = await projectManager.getProject(projectId);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    if (!project.sourceFolders || project.sourceFolders.length === 0) {
+      throw new Error('No source folders configured for this project');
+    }
+
+    // Get database manager for the project
+    const dbManager = await projectManager.openProjectDatabase(projectId);
+
+    // Send initial progress update
+    sendResponse('scan-progress', { 
+      projectId,
+      current: 0, 
+      total: project.sourceFolders.length, 
+      message: 'Starting JSON file scan...' 
+    });
+
+    // Create data table if it doesn't exist
+    await dbManager.executeNonQuery(`
+      CREATE TABLE IF NOT EXISTS data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT
+      )
+    `);
+
+    let processedFiles = 0;
+    let extractedObjects = 0;
+    const processedColumns = new Set<string>();
+
+    // Process each source folder
+    for (let i = 0; i < project.sourceFolders.length; i++) {
+      const folder = project.sourceFolders[i];
+      
+      if (!folder || !folder.path) {
+        console.warn(`Skipping undefined folder at index ${i}`);
+        continue;
+      }
+      
+      // Send progress update for each folder
+      sendResponse('scan-progress', { 
+        projectId,
+        current: i, 
+        total: project.sourceFolders.length, 
+        message: `Scanning folder: ${folder.path}` 
+      });
+
+      // Find all JSON files in the folder
+      const jsonFiles = await findJsonFiles(folder.path);
+      
+      // Process each JSON file
+      for (let j = 0; j < jsonFiles.length; j++) {
+        const filePath = jsonFiles[j];
+        
+        if (!filePath) {
+          console.warn(`Skipping undefined file path at index ${j}`);
+          continue;
+        }
+        
+        // Send progress update for each file
+        sendResponse('scan-progress', { 
+          projectId,
+          current: i, 
+          total: project.sourceFolders.length, 
+          message: `Processing file ${j + 1}/${jsonFiles.length}: ${path.basename(filePath)}` 
+        });
+
+        try {
+          // Process the JSON file line by line
+          const extractedData = await processJsonFile(filePath);
+          
+          // Add columns to the data table if needed
+          for (const obj of extractedData) {
+            for (const key of Object.keys(obj)) {
+              if (!processedColumns.has(key)) {
+                // Add column to the table if it doesn't exist
+                try {
+                  await dbManager.executeNonQuery(`ALTER TABLE data ADD COLUMN "${key}" TEXT`);
+                  processedColumns.add(key);
+                } catch (columnError) {
+                  // Column might already exist, ignore the error
+                  console.warn(`Column "${key}" might already exist:`, columnError);
+                }
+              }
+            }
+          }
+          
+          // Insert data into the table
+          for (const obj of extractedData) {
+            if (Object.keys(obj).length > 0) {
+              const columns = Object.keys(obj).map(key => `"${key}"`).join(', ');
+              const placeholders = Object.keys(obj).map(() => '?').join(', ');
+              const values = Object.values(obj);
+              
+              await dbManager.executeNonQuery(
+                `INSERT INTO data (${columns}) VALUES (${placeholders})`,
+                values
+              );
+              
+              extractedObjects++;
+            }
+          }
+          
+          processedFiles++;
+        } catch (fileError) {
+          console.warn(`Error processing file ${filePath}:`, fileError);
+          // Continue with next file
+        }
+      }
+    }
+
+    // Send final progress update
+    sendResponse('scan-progress', { 
+      projectId,
+      current: project.sourceFolders.length, 
+      total: project.sourceFolders.length, 
+      message: `Scan completed. Processed ${processedFiles} files and extracted ${extractedObjects} objects.` 
+    });
+
+    // Send scan complete event
+    sendResponse('scan-complete', { 
+      projectId, 
+      processedFiles, 
+      extractedObjects 
+    });
+
+  } catch (error) {
+    console.error('Failed to scan source directories:', error);
+    sendError('Failed to scan source directories', (error as Error).message);
+  }
+});
+
+/**
+ * Find all JSON files in a directory recursively
+ */
+async function findJsonFiles(dir: string): Promise<string[]> {
+  const files: string[] = [];
+  
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      
+      if (entry.isDirectory()) {
+        // Recursively search subdirectories
+        const subDirFiles = await findJsonFiles(fullPath);
+        files.push(...subDirFiles);
+      } else if (entry.isFile() && entry.name.endsWith('.json')) {
+        // Add JSON files to the list
+        files.push(fullPath);
+      }
+    }
+  } catch (error) {
+    console.warn(`Error reading directory ${dir}:`, error);
+  }
+  
+  return files;
+}
+
+/**
+ * Process a JSON file line by line and extract objects
+ */
+async function processJsonFile(filePath: string): Promise<any[]> {
+  const extractedObjects: any[] = [];
+  
+  try {
+    // Read the file content
+    const content = fs.readFileSync(filePath, 'utf8');
+    
+    // Try to parse the file as JSON
+    try {
+      const json = JSON.parse(content);
+      
+      // Check if it's an array of objects
+      if (Array.isArray(json)) {
+        // Extract first-level properties from each object
+        for (const item of json) {
+          if (typeof item === 'object' && item !== null) {
+            const extractedObj: any = {};
+            
+            // Extract only first-level properties
+            for (const [key, value] of Object.entries(item)) {
+              // Store only primitive values or stringified complex values
+              if (value === null) {
+                extractedObj[key] = null;
+              } else if (typeof value !== 'object') {
+                extractedObj[key] = value;
+              } else {
+                extractedObj[key] = JSON.stringify(value);
+              }
+            }
+            
+            extractedObjects.push(extractedObj);
+          }
+        }
+      }
+    } catch (jsonError) {
+      console.warn(`Error parsing JSON file ${filePath}:`, jsonError);
+    }
+  } catch (fileError) {
+    console.warn(`Error reading file ${filePath}:`, fileError);
+  }
+  
+  return extractedObjects;
+}
+
+/**
  * Select a folder using the system dialog
  */
 ipcMain.on('select-folder', async (event) => {

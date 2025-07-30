@@ -29,6 +29,7 @@ export interface View {
 }
 
 export interface ScanProgress {
+  projectId?: string;
   current: number;
   total: number;
   message: string;
@@ -90,6 +91,9 @@ export interface MainProcessAPI {
   removeSourceFolder: (projectId: string, folderId: string) => void;
   onSourceFolderRemoved: (callback: (data: { projectId: string, folderId: string }) => void) => void;
   openFolder: (folderPath: string) => void;
+  scanSourceDirectories: (projectId: string) => void;
+  onScanProgress: (callback: (progress: { projectId: string, current: number, total: number, message: string }) => void) => void;
+  onScanComplete: (callback: (result: { projectId: string, processedFiles: number, extractedObjects: number }) => void) => void;
 
   // View operations
   createView: (projectId: string, viewName: string) => void;
@@ -101,7 +105,7 @@ export interface MainProcessAPI {
 
   // Data operations
   scanData: (projectId: string, viewId: string) => void;
-  onScanProgress: (callback: (progress: ScanProgress) => void) => void;
+  onDataScanProgress: (callback: (progress: ScanProgress) => void) => void;
   onDataScanned: (callback: (results: ScanResults) => void) => void;
   executeQuery: (projectId: string, query: QueryModel) => void;
   onQueryResults: (callback: (results: QueryResult) => void) => void;

@@ -49,6 +49,15 @@ contextBridge.exposeInMainWorld(
     openFolder: (folderPath: string) => {
       ipcRenderer.send('open-folder', folderPath);
     },
+    scanSourceDirectories: (projectId: string) => {
+      ipcRenderer.send('scan-source-directories', projectId);
+    },
+    onScanProgress: (callback: (progress: { projectId: string, current: number, total: number, message: string }) => void) => {
+      ipcRenderer.on('scan-progress', (_event, progress) => callback(progress));
+    },
+    onScanComplete: (callback: (result: { projectId: string, processedFiles: number, extractedObjects: number }) => void) => {
+      ipcRenderer.on('scan-complete', (_event, result) => callback(result));
+    },
 
     // View operations
     createView: (projectId: string, viewName: string) => {
@@ -74,8 +83,8 @@ contextBridge.exposeInMainWorld(
     scanData: (projectId: string, viewId: string) => {
       ipcRenderer.send('scan-data', { projectId, viewId });
     },
-    onScanProgress: (callback: (progress: { current: number, total: number, message: string }) => void) => {
-      ipcRenderer.on('scan-progress', (_event, progress) => callback(progress));
+    onDataScanProgress: (callback: (progress: { current: number, total: number, message: string }) => void) => {
+      ipcRenderer.on('data-scan-progress', (_event, progress) => callback(progress));
     },
     onDataScanned: (callback: (results: any) => void) => {
       ipcRenderer.on('data-scanned', (_event, results) => callback(results));
