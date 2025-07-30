@@ -63,7 +63,7 @@ function createWindow(): void {
   // Always load from the dist directory for now
   console.log('Loading from dist directory...');
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   // Initialize application managers
   initializeManagers();

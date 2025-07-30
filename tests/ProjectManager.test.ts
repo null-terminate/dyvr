@@ -488,5 +488,19 @@ describe('ProjectManager', () => {
       // Verify that all project databases are closed
       expect((projectManager as any).projectDatabases.size).toBe(0);
     });
+
+    test('should not reset DataPersistence cache when closing', async () => {
+      // Initialize the ProjectManager
+      await projectManager.initialize();
+      
+      // Clear previous calls to resetCache
+      mockDataPersistence.resetCache.mockClear();
+      
+      // Close the ProjectManager
+      await projectManager.close();
+      
+      // Verify that resetCache was not called
+      expect(mockDataPersistence.resetCache).not.toHaveBeenCalled();
+    });
   });
 });

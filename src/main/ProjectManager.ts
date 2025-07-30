@@ -582,10 +582,8 @@ export class ProjectManager {
     this.projectDatabases.clear();
     this.isInitialized = false;
     
-    // Reset the DataPersistence cache for testing purposes
-    if (this.dataPersistence) {
-      await this.dataPersistence.resetCache();
-    }
+    // Note: We no longer reset the DataPersistence cache when closing
+    // This was causing projects to be deleted from ~/.digr/config
   }
 
   /**
