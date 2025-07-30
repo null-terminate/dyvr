@@ -18,11 +18,7 @@ function createWindow(): void {
   
   // Create a native image from the icon path
   const icon = nativeImage.createFromPath(iconPath);
-  if (icon.isEmpty()) {
-    console.error('Failed to load icon:', iconPath);
-  } else {
-    console.log('Icon loaded successfully');
-    // Set the app icon
+  if (!icon.isEmpty()) {
     if (process.platform === 'darwin') {
       app.dock.setIcon(icon);
     }
