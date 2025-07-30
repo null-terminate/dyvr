@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage } from 'electron';
 import * as path from 'path';
 import { ProjectManager } from './src/main/ProjectManager';
 import { ViewManager } from './src/main/ViewManager';
@@ -12,9 +12,26 @@ let jsonScanner: JSONScanner;
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
+  // Determine the correct path to the icon
+  const iconPath = path.resolve(__dirname, 'src/assets/Sandwich.png');
+  console.log('Icon path:', iconPath);
+  
+  // Create a native image from the icon path
+  const icon = nativeImage.createFromPath(iconPath);
+  if (icon.isEmpty()) {
+    console.error('Failed to load icon:', iconPath);
+  } else {
+    console.log('Icon loaded successfully');
+    // Set the app icon
+    if (process.platform === 'darwin') {
+      app.dock.setIcon(icon);
+    }
+  }
+  
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -463,7 +480,19 @@ ipcMain.on('check-view-data', async (event, data: { projectId: string; viewId: s
   }
 });
 
-app.whenReady().then(createWindow);
+// Set the application icon as early as possible
+if (process.platform === 'darwin') {
+  app.whenReady().then(() => {
+    const iconPath = path.resolve(__dirname, 'src/assets/Sandwich.png');
+    const icon = nativeImage.createFromPath(iconPath);
+    if (!icon.isEmpty()) {
+      app.dock.setIcon(icon);
+    }
+    createWindow();
+  });
+} else {
+  app.whenReady().then(createWindow);
+}
 
 app.on('window-all-closed', async () => {
   // Cleanup managers before quitting
