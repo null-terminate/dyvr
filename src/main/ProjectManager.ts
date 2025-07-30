@@ -50,44 +50,61 @@ export class ProjectManager {
         throw new Error(`Project name "${name}" already exists. Please choose a different name.`);
       }
 
-      // Validate working directory path
-      const resolvedPath = path.resolve(workingDirectory);
+      // Validate parent directory path
+      const resolvedParentPath = path.resolve(workingDirectory);
       
-      // Create working directory if it doesn't exist
-      if (!fs.existsSync(resolvedPath)) {
+      // Create parent directory if it doesn't exist
+      if (!fs.existsSync(resolvedParentPath)) {
         try {
-          fs.mkdirSync(resolvedPath, { recursive: true });
+          fs.mkdirSync(resolvedParentPath, { recursive: true });
         } catch (fsError) {
-          throw new Error(`Failed to create working directory: ${(fsError as Error).message}`);
+          throw new Error(`Failed to create parent directory: ${(fsError as Error).message}`);
         }
       }
 
-      // Verify directory is accessible
+      // Verify parent directory is accessible
       try {
-        fs.accessSync(resolvedPath, fs.constants.R_OK | fs.constants.W_OK);
+        fs.accessSync(resolvedParentPath, fs.constants.R_OK | fs.constants.W_OK);
       } catch (accessError) {
-        throw new Error(`Working directory is not accessible: ${(accessError as Error).message}`);
+        throw new Error(`Parent directory is not accessible: ${(accessError as Error).message}`);
+      }
+      
+      // Create project subfolder with the project name
+      const projectFolderName = name.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
+      const projectPath = path.join(resolvedParentPath, projectFolderName);
+      
+      // Check if project folder already exists
+      if (fs.existsSync(projectPath)) {
+        console.log(`Project folder "${projectPath}" already exists`);
+        throw new Error(`Project folder "${projectFolderName}" already exists in the selected directory. Please choose a different name or location.`);
+      }
+      
+      // Create project folder
+      try {
+        fs.mkdirSync(projectPath, { recursive: true });
+      } catch (fsError) {
+        throw new Error(`Failed to create project folder: ${(fsError as Error).message}`);
       }
 
       // Create project object
       const project: Project = {
         id: uuidv4(),
         name: name.trim(),
-        workingDirectory: resolvedPath,
+        workingDirectory: projectPath,
         sourceFolders: [],
         createdDate: new Date(),
         lastModified: new Date()
       };
 
       // Create per-project database and initialize schema
-      console.log(`Ensuring .digr folder exists at ${resolvedPath}`);
-      await this.ensureProjectDigrFolder(resolvedPath);
-      console.log(`Creating database manager for ${resolvedPath}`);
-      const dbManager = new DatabaseManager(resolvedPath);
+      console.log(`Ensuring .digr folder exists at ${projectPath}`);
+      await this.ensureProjectDigrFolder(projectPath);
+      console.log(`Creating database manager for ${projectPath}`);
+      const dbManager = new DatabaseManager(projectPath);
       console.log(`Initializing project database for ${project.id}`);
-      await dbManager.initializeProjectDatabase(project.id, project.name, resolvedPath);
+      await dbManager.initializeProjectDatabase(project.id, project.name, projectPath);
       console.log(`Creating project schema for ${project.id}`);
-      await dbManager.createProjectSchema(project.id, project.name, resolvedPath);
+      await dbManager.createProjectSchema(project.id, project.name, projectPath);
       console.log(`Closing project database for ${project.id}`);
       await dbManager.closeProjectDatabase();
 

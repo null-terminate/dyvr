@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ProjectManager } from './src/main/ProjectManager';
@@ -232,8 +232,8 @@ ipcMain.on('create-project', async (event, data: { name: string; workingDirector
 
     const project = await projectManager.createProject(data.name, data.workingDirectory);
     
-    // Also add to digr.config
-    await digrConfigManager.addProject(data.workingDirectory);
+    // Also add to digr.config - use the project's actual working directory (which includes the project name subfolder)
+    await digrConfigManager.addProject(project.workingDirectory);
     
     sendResponse('project-created', project);
   } catch (error) {
@@ -345,6 +345,33 @@ ipcMain.on('open-folder', async (event, folderPath: string) => {
   } catch (error) {
     console.error('Failed to open folder:', error);
     sendError('Failed to open folder', (error as Error).message);
+  }
+});
+
+/**
+ * Select a folder using the system dialog
+ */
+ipcMain.on('select-folder', async (event) => {
+  try {
+    if (!mainWindow) {
+      throw new Error('Main window is not available');
+    }
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory', 'createDirectory']
+    });
+
+    if (result.canceled) {
+      mainWindow.webContents.send('folder-selected', null);
+    } else {
+      mainWindow.webContents.send('folder-selected', result.filePaths[0]);
+    }
+  } catch (error) {
+    console.error('Failed to select folder:', error);
+    sendError('Failed to select folder', (error as Error).message);
+    if (mainWindow) {
+      mainWindow.webContents.send('folder-selected', null);
+    }
   }
 });
 

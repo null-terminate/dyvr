@@ -24,12 +24,16 @@ contextBridge.exposeInMainWorld(
     onProjectCreated: (callback: (project: any) => void) => {
       ipcRenderer.on('project-created', (_event, project) => callback(project));
     },
-    deleteProject: (projectId: string) => {
-      ipcRenderer.send('delete-project', projectId);
-    },
-    onProjectDeleted: (callback: (projectId: string) => void) => {
-      ipcRenderer.on('project-deleted', (_event, projectId) => callback(projectId));
-    },
+  deleteProject: (projectId: string) => {
+    ipcRenderer.send('delete-project', projectId);
+  },
+  onProjectDeleted: (callback: (projectId: string) => void) => {
+    ipcRenderer.on('project-deleted', (_event, projectId) => callback(projectId));
+  },
+  selectFolder: (callback: (selectedPath: string | null) => void) => {
+    ipcRenderer.send('select-folder');
+    ipcRenderer.once('folder-selected', (_event, path) => callback(path));
+  },
 
     // Source folder operations
     addSourceFolder: (projectId: string, folderPath: string) => {

@@ -108,15 +108,27 @@ const Sidebar: React.FC = () => {
       setProjects(loadedProjects);
     });
     
+    // Set up event listener for when a project is created
+    api.onProjectCreated((project) => {
+      console.log('Sidebar: Project created:', project);
+      
+      // Refresh the project list
+      api.loadProjects();
+      
+      // Ensure the projects list is expanded
+      setIsProjectsExpanded(true);
+    });
+    
     // Request projects to be loaded
     console.log('Sidebar: Requesting projects from main process');
     api.loadProjects();
     
-    // Clean up event listener
+    // Clean up event listeners
     return () => {
-      console.log('Sidebar: Removing projects-loaded event listener');
+      console.log('Sidebar: Removing event listeners');
       if (api.removeAllListeners) {
         api.removeAllListeners('projects-loaded');
+        api.removeAllListeners('project-created');
       }
     };
   }, [api]);

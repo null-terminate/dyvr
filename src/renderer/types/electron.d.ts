@@ -79,6 +79,7 @@ interface ElectronAPI {
   onProjectCreated: (callback: (project: Project) => void) => void;
   deleteProject: (projectId: string) => void;
   onProjectDeleted: (callback: (projectId: string) => void) => void;
+  selectFolder: (callback: (selectedPath: string | null) => void) => void;
 
   // Source folder operations
   addSourceFolder: (projectId: string, folderPath: string) => void;
