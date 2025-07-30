@@ -7,6 +7,9 @@ import { JSONScanner } from './src/main/JSONScanner';
 import { DigrConfigManager } from './src/main/DigrConfigManager';
 import { Project, View, ScanResults, QueryModel, QueryResult } from './src/types';
 
+// Enable remote debugging for the main process
+app.commandLine.appendSwitch('remote-debugging-port', '9222');
+
 // Application managers
 let projectManager: ProjectManager;
 let viewManager: ViewManager;
@@ -199,10 +202,14 @@ ipcMain.on('create-project', async (event, data: { name: string; workingDirector
       throw new Error('Project name and working directory are required');
     }
 
+    console.log(`Main process: Creating project with name "${data.name}" in directory "${data.workingDirectory}"`);
     const project = await projectManager.createProject(data.name, data.workingDirectory);
+    console.log(`Main process: Project created successfully with ID "${project.id}" at path "${project.workingDirectory}"`);
     
     // Also add to digr.config - use the project's actual working directory (which includes the project name subfolder)
+    console.log(`Main process: Adding project to digr.config with path "${project.workingDirectory}"`);
     await digrConfigManager.addProject(project.workingDirectory);
+    console.log(`Main process: Project added to digr.config successfully`);
     
     sendResponse('project-created', project);
   } catch (error) {

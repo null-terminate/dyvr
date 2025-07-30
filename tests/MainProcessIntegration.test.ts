@@ -61,9 +61,11 @@ describe('Main Process Integration', () => {
       const project = await projectManager.createProject(projectName, workingDir);
       expect(project).toBeDefined();
       expect(project.name).toBe(projectName);
-      expect(project.workingDirectory).toBe(path.resolve(workingDir));
+      // Project directory should now be a subfolder with the project name
+      const expectedProjectDir = path.join(path.resolve(workingDir), projectName);
+      expect(project.workingDirectory).toBe(expectedProjectDir);
       expect(fs.existsSync(workingDir)).toBe(true);
-      expect(fs.existsSync(path.join(workingDir, '.digr'))).toBe(true);
+      expect(fs.existsSync(path.join(expectedProjectDir, '.digr'))).toBe(true);
 
       // Retrieve project
       const retrievedProject = await projectManager.getProject(project.id);

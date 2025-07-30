@@ -41,21 +41,43 @@ export class DataPersistence {
     this._validateInitialized();
 
     try {
+      console.log(`DataPersistence: Loading projects from digr.config`);
       const config = await this.digrConfigManager.getConfig();
+      console.log(`DataPersistence: Found ${config.projects.length} projects in digr.config`);
+      
       const projects: Project[] = [];
       
       for (const configProject of config.projects) {
         const projectPath = configProject.path;
+        console.log(`DataPersistence: Processing project with path "${projectPath}"`);
+        
+        // Check if the project path exists
+        if (!fs.existsSync(projectPath)) {
+          console.warn(`DataPersistence: Project path "${projectPath}" does not exist, but will still load it`);
+        } else {
+          console.log(`DataPersistence: Project path "${projectPath}" exists`);
+          
+          // Check if the project path has a .digr subfolder
+          const digrFolderPath = path.join(projectPath, '.digr');
+          if (!fs.existsSync(digrFolderPath)) {
+            console.warn(`DataPersistence: Project path "${projectPath}" does not have a .digr subfolder`);
+          } else {
+            console.log(`DataPersistence: Project path "${projectPath}" has a .digr subfolder`);
+          }
+        }
         
         // Check if we have this project in cache
         const cachedProject = Array.from(this.projectCache.values())
           .find(p => path.resolve(p.workingDirectory) === path.resolve(projectPath));
         
         if (cachedProject) {
+          console.log(`DataPersistence: Found project "${cachedProject.name}" (${cachedProject.id}) in cache`);
           projects.push(cachedProject);
         } else {
           // Create a new project object
           const projectName = path.basename(projectPath);
+          console.log(`DataPersistence: Creating new project object for "${projectName}" at "${projectPath}"`);
+          
           const project: Project = {
             id: uuidv4(),
             name: projectName,
@@ -65,12 +87,15 @@ export class DataPersistence {
             lastModified: new Date()
           };
           
+          console.log(`DataPersistence: Created project with ID "${project.id}"`);
+          
           // Add to cache
           this.projectCache.set(project.id, project);
           projects.push(project);
         }
       }
       
+      console.log(`DataPersistence: Returning ${projects.length} projects`);
       return projects;
     } catch (error) {
       console.error('Failed to load projects from digr.config:', error);

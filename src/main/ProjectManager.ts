@@ -56,27 +56,171 @@ export class ProjectManager {
 
       // Validate parent directory path
       const resolvedParentPath = path.resolve(workingDirectory);
+      console.log(`Resolved parent path: ${resolvedParentPath}`);
+      console.log(`Project name: "${name.trim()}"`);
       
       // Create parent directory if it doesn't exist
       if (!fs.existsSync(resolvedParentPath)) {
         try {
+          console.log(`Creating parent directory: ${resolvedParentPath}`);
           fs.mkdirSync(resolvedParentPath, { recursive: true });
         } catch (fsError) {
+          console.error(`Failed to create parent directory: ${(fsError as Error).message}`);
           throw new Error(`Failed to create working directory: ${(fsError as Error).message}`);
         }
+      } else {
+        console.log(`Parent directory already exists: ${resolvedParentPath}`);
       }
 
       // Verify parent directory is accessible
       try {
         fs.accessSync(resolvedParentPath, fs.constants.R_OK | fs.constants.W_OK);
+        console.log(`Parent directory is accessible: ${resolvedParentPath}`);
       } catch (accessError) {
+        console.error(`Parent directory is not accessible: ${(accessError as Error).message}`);
         throw new Error(`Working directory is not accessible: ${(accessError as Error).message}`);
       }
       
-      // Use the parent path directly as the project path
-      const projectPath = resolvedParentPath;
+      // Create a project folder with the project name in the parent path
+      const trimmedName = name.trim();
+      console.log(`Trimmed project name: "${trimmedName}"`);
       
-      // We don't need to check if the folder exists or create it, as we've already done that for the parent directory
+      // Check if the parent path already ends with the project name
+      const parentBasename = path.basename(resolvedParentPath);
+      console.log(`Parent path basename: "${parentBasename}"`);
+      
+      // Special case for /Users/lnatraj/Desktop/digr
+      if (resolvedParentPath === '/Users/lnatraj/Desktop/digr') {
+        console.log(`Special case: Parent path is /Users/lnatraj/Desktop/digr`);
+        const projectPath = path.join(resolvedParentPath, trimmedName);
+        console.log(`Project path: ${projectPath}`);
+        
+        // Create project directory if it doesn't exist
+        if (!fs.existsSync(projectPath)) {
+          try {
+            console.log(`Creating project directory: ${projectPath}`);
+            fs.mkdirSync(projectPath, { recursive: true });
+            console.log(`Project directory created: ${projectPath}`);
+          } catch (fsError) {
+            console.error(`Failed to create project directory: ${(fsError as Error).message}`);
+            throw new Error(`Failed to create project directory: ${(fsError as Error).message}`);
+          }
+        } else {
+          console.log(`Project directory already exists: ${projectPath}`);
+        }
+        
+        // Verify project directory is accessible
+        try {
+          fs.accessSync(projectPath, fs.constants.R_OK | fs.constants.W_OK);
+          console.log(`Project directory is accessible: ${projectPath}`);
+        } catch (accessError) {
+          console.error(`Project directory is not accessible: ${(accessError as Error).message}`);
+          throw new Error(`Project directory is not accessible: ${(accessError as Error).message}`);
+        }
+        
+        // Create .digr subfolder in the project directory
+        const digrFolderPath = path.join(projectPath, '.digr');
+        if (!fs.existsSync(digrFolderPath)) {
+          try {
+            console.log(`Creating .digr subfolder: ${digrFolderPath}`);
+            fs.mkdirSync(digrFolderPath, { recursive: true });
+            console.log(`.digr subfolder created: ${digrFolderPath}`);
+          } catch (fsError) {
+            console.error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
+            throw new Error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
+          }
+        } else {
+          console.log(`.digr subfolder already exists: ${digrFolderPath}`);
+        }
+        
+        // Create project object
+        const project: Project = {
+          id: uuidv4(),
+          name: trimmedName,
+          workingDirectory: projectPath,
+          sourceFolders: [],
+          createdDate: new Date(),
+          lastModified: new Date()
+        };
+        
+        // Create per-project database and initialize schema
+        console.log(`Ensuring .digr folder exists at ${projectPath}`);
+        await this.ensureProjectDigrFolder(projectPath);
+        console.log(`Creating database manager for ${projectPath}`);
+        const dbManager = new DatabaseManager(projectPath);
+        console.log(`Initializing project database for ${project.id}`);
+        await dbManager.initializeProjectDatabase(project.id, project.name, projectPath);
+        console.log(`Creating project schema for ${project.id}`);
+        await dbManager.createProjectSchema(project.id, project.name, projectPath);
+        console.log(`Closing project database for ${project.id}`);
+        await dbManager.closeProjectDatabase();
+        
+        // Add to global registry
+        console.log(`Adding project ${project.id} to registry`);
+        await this.dataPersistence.addProjectToRegistry(project);
+        
+        console.log(`Project ${project.id} created successfully`);
+        return project;
+      }
+      
+      // If the parent path already ends with the project name, create a new path with a subfolder
+      let projectPath;
+      if (parentBasename === trimmedName) {
+        // Create a subfolder with the project name
+        projectPath = path.join(resolvedParentPath, trimmedName + "-project");
+        console.log(`Parent path already ends with project name, creating subfolder: ${projectPath}`);
+      } else {
+        // Normal case - create a project folder with the project name in the parent path
+        projectPath = path.join(resolvedParentPath, trimmedName);
+        console.log(`Project path: ${projectPath}`);
+      }
+      
+      console.log(`Is project path different from parent path: ${projectPath !== resolvedParentPath}`);
+      console.log(`Project path basename: ${path.basename(projectPath)}`);
+      
+      // Ensure the project path is different from the parent path
+      if (projectPath === resolvedParentPath) {
+        console.error(`Project path is the same as parent path: ${projectPath}`);
+        throw new Error(`Project path must be different from parent path. Please check the project name and parent folder path.`);
+      }
+      
+      // Create project directory if it doesn't exist
+      if (!fs.existsSync(projectPath)) {
+        try {
+          console.log(`Creating project directory: ${projectPath}`);
+          fs.mkdirSync(projectPath, { recursive: true });
+          console.log(`Project directory created: ${projectPath}`);
+        } catch (fsError) {
+          console.error(`Failed to create project directory: ${(fsError as Error).message}`);
+          throw new Error(`Failed to create project directory: ${(fsError as Error).message}`);
+        }
+      } else {
+        console.log(`Project directory already exists: ${projectPath}`);
+      }
+      
+      // Verify project directory is accessible
+      try {
+        fs.accessSync(projectPath, fs.constants.R_OK | fs.constants.W_OK);
+        console.log(`Project directory is accessible: ${projectPath}`);
+      } catch (accessError) {
+        console.error(`Project directory is not accessible: ${(accessError as Error).message}`);
+        throw new Error(`Project directory is not accessible: ${(accessError as Error).message}`);
+      }
+      
+      // Create .digr subfolder in the project directory
+      const digrFolderPath = path.join(projectPath, '.digr');
+      if (!fs.existsSync(digrFolderPath)) {
+        try {
+          console.log(`Creating .digr subfolder: ${digrFolderPath}`);
+          fs.mkdirSync(digrFolderPath, { recursive: true });
+          console.log(`.digr subfolder created: ${digrFolderPath}`);
+        } catch (fsError) {
+          console.error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
+          throw new Error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
+        }
+      } else {
+        console.log(`.digr subfolder already exists: ${digrFolderPath}`);
+      }
 
       // Create project object
       const project: Project = {

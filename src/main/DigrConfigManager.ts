@@ -86,21 +86,36 @@ export class DigrConfigManager {
     this._validateInitialized();
 
     try {
+      console.log(`DigrConfigManager: Adding project with path "${path}" to digr.config`);
+      
+      // Verify the path exists
+      if (!fs.existsSync(path)) {
+        console.warn(`DigrConfigManager: Path "${path}" does not exist, but adding to config anyway`);
+      } else {
+        console.log(`DigrConfigManager: Path "${path}" exists`);
+      }
+      
       const config = await this.getConfig();
+      console.log(`DigrConfigManager: Current config has ${config.projects.length} projects`);
       
       // Check if project already exists
       const existingIndex = config.projects.findIndex((p: { path: string }) => p.path === path);
       
       if (existingIndex >= 0) {
         // Update existing project
+        console.log(`DigrConfigManager: Project with path "${path}" already exists at index ${existingIndex}, updating`);
         config.projects[existingIndex] = { path };
       } else {
         // Add new project
+        console.log(`DigrConfigManager: Adding new project with path "${path}"`);
         config.projects.push({ path });
       }
 
+      console.log(`DigrConfigManager: Saving config with ${config.projects.length} projects`);
       await this.saveConfig(config);
+      console.log(`DigrConfigManager: Config saved successfully`);
     } catch (error) {
+      console.error(`DigrConfigManager: Failed to add project to digr.config: ${(error as Error).message}`);
       throw new Error(`Failed to add project to digr.config: ${(error as Error).message}`);
     }
   }
