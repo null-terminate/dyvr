@@ -1,19 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMainProcess } from '../context/MainProcessContext';
-
-interface Project {
-  id: string;
-  name: string;
-  path: string;
-  workingDirectory: string;
-  lastOpened?: Date;
-  created?: Date;
-}
+import { Project } from '../types/mainProcessTypes';
+import CreateProjectDialog from '../components/CreateProjectDialog';
 
 const ProjectList: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState<boolean>(false);
   const navigate = useNavigate();
   const api = useMainProcess();
 
@@ -30,6 +24,15 @@ const ProjectList: React.FC = () => {
       setIsLoading(false);
     });
     
+    // Set up event listener for when a project is created
+    const handleProjectCreated = (project: Project) => {
+      // Refresh the project list
+      api.loadProjects();
+    };
+    
+    // Register the event listeners
+    api.onProjectCreated(handleProjectCreated);
+    
     // Request projects to be loaded
     api.loadProjects();
     
@@ -37,12 +40,20 @@ const ProjectList: React.FC = () => {
     return () => {
       if (api.removeAllListeners) {
         api.removeAllListeners('projects-loaded');
+        api.removeAllListeners('project-created');
       }
     };
   }, [api]);
 
   const handleCreateProject = () => {
-    // In a real app, this would open a dialog to create a new project
+    setIsCreateDialogOpen(true);
+  };
+  
+  const handleCreateProjectSubmit = (projectName: string, folderPath: string) => {
+    if (api) {
+      api.createProject(projectName, folderPath);
+      setIsCreateDialogOpen(false);
+    }
   };
 
   return (
@@ -51,6 +62,12 @@ const ProjectList: React.FC = () => {
         <h2>Projects</h2>
         <button onClick={handleCreateProject}>Create New Project</button>
       </div>
+      
+      <CreateProjectDialog 
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        onSubmit={handleCreateProjectSubmit}
+      />
       
       {isLoading ? (
         <p>Loading projects...</p>
