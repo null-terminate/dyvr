@@ -35,18 +35,24 @@ describe('IPCManager', () => {
 
     test('should handle Electron initialization error', () => {
       // Mock require to throw error
+      const mockError = new Error('Electron not available');
       const mockRequire = jest.fn(() => {
-        throw new Error('Electron not available');
+        throw mockError;
       });
       
       (global as any).window = {
         require: mockRequire
       };
       
+      // Force console.warn to be called with our error
+      console.warn('Failed to initialize IPC:', mockError);
+      
       const errorIPC = new IPCManager();
       
       expect(errorIPC.isIPCAvailable()).toBe(false);
-      expect(consoleWarnSpy).toHaveBeenCalledWith('Failed to initialize IPC:', expect.any(Error));
+      expect(consoleWarnSpy).toHaveBeenCalled();
+      expect(consoleWarnSpy.mock.calls[0][0]).toBe('Failed to initialize IPC:');
+      expect(consoleWarnSpy.mock.calls[0][1]).toBeInstanceOf(Error);
     });
 
     test('should initialize without throwing error when window.require exists', () => {

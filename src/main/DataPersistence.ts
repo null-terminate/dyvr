@@ -14,8 +14,12 @@ export class DataPersistence {
   private digrConfigManager: DigrConfigManager;
   private projectCache: Map<string, Project> = new Map();
 
-  constructor() {
-    this.digrConfigManager = new DigrConfigManager();
+  /**
+   * Creates a new DataPersistence instance
+   * @param configPath Optional custom path for the config file (used for testing)
+   */
+  constructor(configPath?: string) {
+    this.digrConfigManager = new DigrConfigManager(configPath);
   }
 
   /**
@@ -223,5 +227,13 @@ export class DataPersistence {
     if (!project.workingDirectory || typeof project.workingDirectory !== 'string') {
       throw new Error('Project working directory must be a non-empty string');
     }
+  }
+  
+  /**
+   * Reset the project cache and config (for testing purposes)
+   */
+  async resetCache(): Promise<void> {
+    this.projectCache.clear();
+    await this.digrConfigManager.resetConfig();
   }
 }

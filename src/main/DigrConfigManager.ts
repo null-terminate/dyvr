@@ -11,10 +11,18 @@ export class DigrConfigManager {
   private configPath: string;
   private isInitialized: boolean = false;
 
-  constructor() {
-    const homeDir = os.homedir();
-    const digrDir = path.join(homeDir, '.digr');
-    this.configPath = path.join(digrDir, 'digr.config');
+  /**
+   * Creates a new DigrConfigManager instance
+   * @param configPath Optional custom path for the config file (used for testing)
+   */
+  constructor(configPath?: string) {
+    if (configPath) {
+      this.configPath = configPath;
+    } else {
+      const homeDir = os.homedir();
+      const digrDir = path.join(homeDir, '.digr');
+      this.configPath = path.join(digrDir, 'digr.config');
+    }
   }
 
   /**
@@ -151,6 +159,20 @@ export class DigrConfigManager {
   private _validateInitialized(): void {
     if (!this.isInitialized) {
       throw new Error('DigrConfigManager not initialized. Call initialize() first.');
+    }
+  }
+  
+  /**
+   * Reset the config file to an empty state (for testing purposes)
+   */
+  async resetConfig(): Promise<void> {
+    this._validateInitialized();
+    
+    try {
+      const emptyConfig: DigrConfig = { projects: [] };
+      await this.saveConfig(emptyConfig);
+    } catch (error) {
+      throw new Error(`Failed to reset digr.config: ${(error as Error).message}`);
     }
   }
 }

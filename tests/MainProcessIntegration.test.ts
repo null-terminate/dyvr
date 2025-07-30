@@ -4,16 +4,21 @@ import { JSONScanner } from '../src/main/JSONScanner';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { createTempConfigPath, createTempTestDir, cleanupTempDir } from './setup';
 
 describe('Main Process Integration', () => {
   let projectManager: ProjectManager;
   let viewManager: ViewManager;
   let jsonScanner: JSONScanner;
   let testDir: string;
+  let testConfigPath: string;
 
   beforeEach(async () => {
     // Create temporary directory for tests
-    testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'project-manager-test-'));
+    testDir = createTempTestDir();
+    
+    // Create temporary config file path
+    testConfigPath = createTempConfigPath(testDir);
 
     // Clean up any existing test data directory
     const testDataDir = path.join(process.cwd(), 'test-data');
@@ -21,9 +26,12 @@ describe('Main Process Integration', () => {
       fs.rmSync(testDataDir, { recursive: true, force: true });
     }
 
-    // Initialize managers
-    projectManager = new ProjectManager();
+    // Initialize managers with test config path
+    projectManager = new ProjectManager(testConfigPath);
     await projectManager.initialize();
+    
+    // Reset the DataPersistence cache to avoid project name conflicts between tests
+    await (projectManager as any).dataPersistence.resetCache();
 
     viewManager = new ViewManager();
     await viewManager.initialize();
@@ -41,9 +49,7 @@ describe('Main Process Integration', () => {
     }
 
     // Cleanup test directory
-    if (fs.existsSync(testDir)) {
-      fs.rmSync(testDir, { recursive: true, force: true });
-    }
+    cleanupTempDir(testDir);
   });
 
   describe('Project CRUD Operations', () => {
@@ -271,8 +277,8 @@ describe('Main Process Integration', () => {
 
   describe('Error Handling and Response Formatting', () => {
     test('should handle manager initialization errors', async () => {
-      // Test with invalid state
-      const invalidProjectManager = new ProjectManager();
+      // Test with invalid state - use test config path
+      const invalidProjectManager = new ProjectManager(testConfigPath);
 
       await expect(invalidProjectManager.getProjects())
         .rejects.toThrow('not initialized');

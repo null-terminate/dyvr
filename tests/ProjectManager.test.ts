@@ -29,6 +29,10 @@ jest.mock('path', () => {
   };
 });
 
+// Import os module and test setup utilities
+import * as os from 'os';
+import { createTempConfigPath } from './setup';
+
 // Mock DataPersistence
 jest.mock('../src/main/DataPersistence');
 
@@ -44,6 +48,9 @@ jest.mock('../src/main/DatabaseManager', () => {
     }))
   };
 });
+
+// Create a temporary test config path
+const TEST_CONFIG_PATH = createTempConfigPath();
 
 import { ProjectManager } from '../src/main/ProjectManager';
 import { DataPersistence } from '../src/main/DataPersistence';
@@ -71,7 +78,8 @@ describe('ProjectManager', () => {
       removeProjectFromRegistry: jest.fn().mockResolvedValue(undefined),
       loadProjectRegistry: jest.fn().mockResolvedValue([]),
       loadSourceFoldersForProject: jest.fn().mockResolvedValue([]),
-      close: jest.fn().mockResolvedValue(undefined)
+      close: jest.fn().mockResolvedValue(undefined),
+      resetCache: jest.fn().mockResolvedValue(undefined)
     };
     
     MockedDataPersistence.mockImplementation(() => mockDataPersistence);
@@ -82,7 +90,8 @@ describe('ProjectManager', () => {
     jest.spyOn(fs, 'accessSync').mockImplementation(() => undefined);
     jest.spyOn(fs, 'statSync').mockReturnValue({ isDirectory: () => true } as any);
     
-    projectManager = new ProjectManager();
+    // Create ProjectManager with test config path
+    projectManager = new ProjectManager(TEST_CONFIG_PATH);
   });
 
   describe('initialization', () => {
@@ -448,7 +457,8 @@ describe('ProjectManager', () => {
 
   describe('error handling', () => {
     test('should throw error when not initialized', async () => {
-      const uninitializedManager = new ProjectManager();
+      // Use test config path for uninitializedManager as well
+      const uninitializedManager = new ProjectManager(TEST_CONFIG_PATH);
       
       await expect(uninitializedManager.getProjects()).rejects.toThrow('ProjectManager not initialized');
     });

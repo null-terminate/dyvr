@@ -15,8 +15,12 @@ export class ProjectManager {
   private isInitialized: boolean = false;
   private projectDatabases: Map<string, DatabaseManager> = new Map();
 
-  constructor() {
-    this.dataPersistence = new DataPersistence();
+  /**
+   * Creates a new ProjectManager instance
+   * @param configPath Optional custom path for the config file (used for testing)
+   */
+  constructor(configPath?: string) {
+    this.dataPersistence = new DataPersistence(configPath);
   }
 
   /**
@@ -58,7 +62,7 @@ export class ProjectManager {
         try {
           fs.mkdirSync(resolvedParentPath, { recursive: true });
         } catch (fsError) {
-          throw new Error(`Failed to create parent directory: ${(fsError as Error).message}`);
+          throw new Error(`Failed to create working directory: ${(fsError as Error).message}`);
         }
       }
 
@@ -66,25 +70,13 @@ export class ProjectManager {
       try {
         fs.accessSync(resolvedParentPath, fs.constants.R_OK | fs.constants.W_OK);
       } catch (accessError) {
-        throw new Error(`Parent directory is not accessible: ${(accessError as Error).message}`);
+        throw new Error(`Working directory is not accessible: ${(accessError as Error).message}`);
       }
       
-      // Create project subfolder with the project name
-      const projectFolderName = name.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
-      const projectPath = path.join(resolvedParentPath, projectFolderName);
+      // Use the parent path directly as the project path
+      const projectPath = resolvedParentPath;
       
-      // Check if project folder already exists
-      if (fs.existsSync(projectPath)) {
-        console.log(`Project folder "${projectPath}" already exists`);
-        throw new Error(`Project folder "${projectFolderName}" already exists in the selected directory. Please choose a different name or location.`);
-      }
-      
-      // Create project folder
-      try {
-        fs.mkdirSync(projectPath, { recursive: true });
-      } catch (fsError) {
-        throw new Error(`Failed to create project folder: ${(fsError as Error).message}`);
-      }
+      // We don't need to check if the folder exists or create it, as we've already done that for the parent directory
 
       // Create project object
       const project: Project = {
@@ -445,6 +437,11 @@ export class ProjectManager {
     }
     this.projectDatabases.clear();
     this.isInitialized = false;
+    
+    // Reset the DataPersistence cache for testing purposes
+    if (this.dataPersistence) {
+      await this.dataPersistence.resetCache();
+    }
   }
 
   /**
