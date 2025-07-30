@@ -35,7 +35,10 @@ export class DatabaseManager {
   async initializeProjectDatabase(projectId: string, projectName: string, workingDirectory: string): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        console.log(`DatabaseManager: Initializing project database for ${projectId} at ${workingDirectory}`);
+        
         if (!projectId || !projectName || !workingDirectory) {
+          console.error('DatabaseManager: Missing required parameters');
           reject(new Error('Project ID, name, and working directory are required'));
           return;
         }
@@ -43,24 +46,31 @@ export class DatabaseManager {
         this.projectWorkingDirectory = workingDirectory;
         const dbPath = this.getDatabasePath(workingDirectory);
         this.databasePath = dbPath;
+        console.log(`DatabaseManager: Database path: ${dbPath}`);
 
         // Ensure the .digr directory exists
+        console.log(`DatabaseManager: Ensuring .digr folder exists at ${workingDirectory}`);
         const digrDir = this.ensureDigrFolder(workingDirectory);
         if (!digrDir) {
+          console.error(`DatabaseManager: Failed to create .digr folder at ${workingDirectory}`);
           reject(new Error('Failed to create .digr folder'));
           return;
         }
 
+        console.log(`DatabaseManager: Creating SQLite database at ${dbPath}`);
         this.db = new sqlite3.Database(dbPath, (err) => {
           if (err) {
+            console.error(`DatabaseManager: Failed to initialize database: ${err.message}`);
             reject(new Error(`Failed to initialize project database: ${err.message}`));
             return;
           }
 
+          console.log(`DatabaseManager: Database initialized successfully at ${dbPath}`);
           this.isInitialized = true;
           resolve();
         });
       } catch (error) {
+        console.error(`DatabaseManager: Initialization error: ${(error as Error).message}`);
         reject(new Error(`Project database initialization error: ${(error as Error).message}`));
       }
     });
@@ -247,15 +257,22 @@ export class DatabaseManager {
   ensureDigrFolder(workingDirectory: string): boolean {
     try {
       const digrPath = path.join(workingDirectory, '.digr');
+      console.log(`DatabaseManager: Ensuring .digr folder at ${digrPath}`);
       
       if (!fs.existsSync(digrPath)) {
+        console.log(`DatabaseManager: .digr folder doesn't exist, creating it`);
         fs.mkdirSync(digrPath, { recursive: true });
+      } else {
+        console.log(`DatabaseManager: .digr folder already exists`);
       }
 
       // Verify the folder was created and is accessible
-      return fs.existsSync(digrPath) && fs.statSync(digrPath).isDirectory();
+      const exists = fs.existsSync(digrPath);
+      const isDir = exists && fs.statSync(digrPath).isDirectory();
+      console.log(`DatabaseManager: .digr folder exists: ${exists}, is directory: ${isDir}`);
+      return exists && isDir;
     } catch (error) {
-      console.error(`Failed to create .digr folder: ${(error as Error).message}`);
+      console.error(`DatabaseManager: Failed to create .digr folder: ${(error as Error).message}`);
       return false;
     }
   }

@@ -89,31 +89,36 @@ const Sidebar: React.FC = () => {
 
   // Load projects from the Electron API
   useEffect(() => {
-    if (api) {
-      // Set up event listener for projects loaded
-      api.onProjectsLoaded((loadedProjects) => {
-        setProjects(loadedProjects);
-      });
-      
-      // Request projects to be loaded
-      api.loadProjects();
-      
-      // Clean up event listener
-      return () => {
-        api.removeAllListeners('projects-loaded');
-      };
-    } else {
-      // Mock data for development without Electron
-      setProjects([
-        { id: '1', name: 'Project Alpha' },
-        { id: '2', name: 'Project Beta' },
-        { id: '3', name: 'Project Gamma' },
-        { id: '4', name: 'Project Delta' }
-      ]);
-      
-      // Return empty cleanup function for non-Electron environment
+    console.log('Sidebar: api =', api);
+    if (!api) {
+      console.warn('Sidebar: API is not available');
+      // Set empty projects array when API is not available
+      setProjects([]);
       return () => {};
     }
+    
+    console.log('Sidebar: Setting up projects-loaded event listener');
+    // Set up event listener for projects loaded
+    api.onProjectsLoaded((loadedProjects) => {
+      console.log('Sidebar: Received projects from main process:', loadedProjects);
+      console.log('Sidebar: Project count:', loadedProjects.length);
+      for (let i = 0; i < loadedProjects.length; i++) {
+        console.log(`Sidebar: Project ${i + 1}:`, loadedProjects[i]);
+      }
+      setProjects(loadedProjects);
+    });
+    
+    // Request projects to be loaded
+    console.log('Sidebar: Requesting projects from main process');
+    api.loadProjects();
+    
+    // Clean up event listener
+    return () => {
+      console.log('Sidebar: Removing projects-loaded event listener');
+      if (api.removeAllListeners) {
+        api.removeAllListeners('projects-loaded');
+      }
+    };
   }, [api]);
 
   // Common link style function

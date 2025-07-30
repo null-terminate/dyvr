@@ -1,17 +1,22 @@
 import { app, BrowserWindow, ipcMain, shell, nativeImage } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { ProjectManager } from './src/main/ProjectManager';
 import { ViewManager } from './src/main/ViewManager';
 import { JSONScanner } from './src/main/JSONScanner';
+import { DigrConfigManager } from './src/main/DigrConfigManager';
 import { Project, View, ScanResults, QueryModel, QueryResult } from './src/types';
 
 // Application managers
 let projectManager: ProjectManager;
 let viewManager: ViewManager;
 let jsonScanner: JSONScanner;
+let digrConfigManager: DigrConfigManager;
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
+  console.log('Creating main window...');
+  
   // Determine the correct path to the icon
   const iconPath = path.resolve(__dirname, 'src/assets/Sandwich.png');
   console.log('Icon path:', iconPath);
@@ -31,23 +36,37 @@ function createWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'src', 'preload.js')
     }
   });
 
-  // In development mode, load from webpack dev server
-  if (process.argv.includes('--dev')) {
-    mainWindow.loadURL('http://localhost:9000');
-    mainWindow.webContents.openDevTools();
-  } else {
-    // In production, load from the dist directory
-    mainWindow.loadFile(path.join(__dirname, 'index.html'));
-    // Open DevTools in production for debugging
-    // mainWindow.webContents.openDevTools();
-  }
+  console.log('Setting up window load event listeners...');
+  
+  // Listen for window ready-to-show event
+  mainWindow.once('ready-to-show', () => {
+    console.log('Main window is ready to show');
+  });
+  
+  // Listen for did-finish-load event
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Main window finished loading content');
+  });
+  
+  // Listen for dom-ready event
+  mainWindow.webContents.on('dom-ready', () => {
+    console.log('DOM is ready in the main window');
+  });
+
+  // Always load from the dist directory for now
+  console.log('Loading from dist directory...');
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.webContents.openDevTools();
 
   // Initialize application managers
   initializeManagers();
+  
+  // Log that IPC handlers are set up
+  console.log('IPC handlers are set up and ready to receive events from renderer');
 }
 
 /**
@@ -55,6 +74,10 @@ function createWindow(): void {
  */
 async function initializeManagers(): Promise<void> {
   try {
+    // Initialize DigrConfigManager first
+    digrConfigManager = new DigrConfigManager();
+    await digrConfigManager.initialize();
+    
     // Initialize ProjectManager
     projectManager = new ProjectManager();
     await projectManager.initialize();
@@ -66,6 +89,9 @@ async function initializeManagers(): Promise<void> {
     // Initialize JSONScanner
     jsonScanner = new JSONScanner();
 
+    // Load projects from digr.config
+    await loadProjectsFromDigrConfig();
+
     console.log('Application managers initialized successfully');
   } catch (error) {
     console.error('Failed to initialize application managers:', error);
@@ -76,6 +102,70 @@ async function initializeManagers(): Promise<void> {
         details: (error as Error).message
       });
     }
+  }
+}
+
+/**
+ * Load projects from digr.config and ensure they're in the project registry
+ */
+async function loadProjectsFromDigrConfig(): Promise<void> {
+  try {
+    const digrConfig = await digrConfigManager.getConfig();
+    console.log('Loaded digr.config:', JSON.stringify(digrConfig));
+    const existingProjects = await projectManager.getProjects();
+    console.log('Existing projects:', JSON.stringify(existingProjects));
+    
+    // Add projects from digr.config that aren't in the registry
+    for (const digrProject of digrConfig.projects) {
+      const projectPath = digrProject.path;
+      // Use the folder name as the project name
+      const projectName = path.basename(projectPath);
+      
+      const existingProject = existingProjects.find(p => 
+        path.resolve(p.workingDirectory) === path.resolve(projectPath)
+      );
+      
+      if (!existingProject) {
+        try {
+          console.log(`Creating project from digr.config: ${projectName} at ${projectPath}`);
+          
+          // Create the project regardless of whether .digr folder exists
+          try {
+            // Ensure the directory exists
+            if (!fs.existsSync(projectPath)) {
+              fs.mkdirSync(projectPath, { recursive: true });
+            }
+            
+            await projectManager.createProject(projectName, projectPath);
+            console.log(`Successfully created project: ${projectName}`);
+          } catch (createError) {
+            console.error(`Error creating project: ${(createError as Error).message}`);
+            
+            // If the error is related to the database, try to create the project anyway
+            if ((createError as Error).message.includes('database') || 
+                (createError as Error).message.includes('SQL')) {
+              try {
+                console.log(`Attempting to create project without database validation: ${projectName}`);
+                // Force create the project by ensuring the .digr folder exists
+                if (typeof projectManager.ensureProjectDigrFolder === 'function') {
+                  await projectManager.ensureProjectDigrFolder(projectPath);
+                  await projectManager.createProject(projectName, projectPath);
+                  console.log(`Successfully created project without database validation: ${projectName}`);
+                } else {
+                  console.error(`ProjectManager.ensureProjectDigrFolder is not a function`);
+                }
+              } catch (forceError) {
+                console.error(`Failed to force create project: ${(forceError as Error).message}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to create project from digr.config: ${(error as Error).message}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load projects from digr.config:', error);
   }
 }
 
@@ -93,7 +183,10 @@ function sendError(message: string, details?: any): void {
  */
 function sendResponse(event: string, data: any): void {
   if (mainWindow) {
+    console.log(`Sending response to renderer: ${event}`, JSON.stringify(data).substring(0, 200) + (JSON.stringify(data).length > 200 ? '...' : ''));
     mainWindow.webContents.send(event, data);
+  } else {
+    console.warn(`Cannot send response: mainWindow is null. Event: ${event}`);
   }
 }
 
@@ -104,7 +197,23 @@ function sendResponse(event: string, data: any): void {
  */
 ipcMain.on('load-projects', async () => {
   try {
+    console.log('Received load-projects request from renderer');
     const projects = await projectManager.getProjects();
+    console.log('Sending projects to renderer:', JSON.stringify(projects));
+    
+    // Add more detailed logging
+    console.log(`Number of projects being sent: ${projects.length}`);
+    projects.forEach((project, index) => {
+      console.log(`Project ${index + 1}: ID=${project.id}, Name=${project.name}, Path=${project.workingDirectory}`);
+    });
+    
+    // Check if mainWindow exists
+    if (!mainWindow) {
+      console.error('Cannot send projects: mainWindow is null');
+    } else {
+      console.log('mainWindow exists, sending projects-loaded event');
+    }
+    
     sendResponse('projects-loaded', projects);
   } catch (error) {
     console.error('Failed to load projects:', error);
@@ -122,6 +231,10 @@ ipcMain.on('create-project', async (event, data: { name: string; workingDirector
     }
 
     const project = await projectManager.createProject(data.name, data.workingDirectory);
+    
+    // Also add to digr.config
+    await digrConfigManager.addProject(data.workingDirectory);
+    
     sendResponse('project-created', project);
   } catch (error) {
     console.error('Failed to create project:', error);
@@ -138,7 +251,17 @@ ipcMain.on('delete-project', async (event, projectId: string) => {
       throw new Error('Project ID is required');
     }
 
+    // Get project before deleting to get the name
+    const project = await projectManager.getProject(projectId);
+    if (!project) {
+      throw new Error(`Project with ID "${projectId}" not found`);
+    }
+
     await projectManager.deleteProject(projectId);
+    
+    // Also remove from digr.config
+    await digrConfigManager.removeProject(project.workingDirectory);
+    
     sendResponse('project-deleted', projectId);
   } catch (error) {
     console.error('Failed to delete project:', error);
@@ -523,6 +646,7 @@ app.on('before-quit', async () => {
     if (viewManager) {
       await viewManager.close();
     }
+    // No need to close digrConfigManager as it doesn't maintain any open resources
   } catch (error) {
     console.error('Error during app quit cleanup:', error);
   }

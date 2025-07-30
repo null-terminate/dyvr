@@ -24,62 +24,54 @@ const ProjectDetail: React.FC = () => {
   const api = useElectron();
 
   useEffect(() => {
-    if (api && id) {
-      // Set up event listener for projects loaded
-      api.onProjectsLoaded((loadedProjects) => {
-        // Find the specific project by ID
-        const foundProject = loadedProjects.find(p => p.id === id);
-        if (foundProject) {
-          setProject(foundProject);
-        }
-        setIsLoading(false);
-      });
-      
-      api.onError((error) => {
-        console.error('Error loading project:', error);
-        setIsLoading(false);
-      });
-      
-      // Request projects to be loaded
-      api.loadProjects();
-      
-      // Clean up event listeners
-      return () => {
+    if (!api) {
+      console.warn('ProjectDetail: API is not available');
+      setIsLoading(false);
+      setProject(null); // Ensure project is null when API is not available
+      return () => {};
+    }
+
+    if (!id) {
+      console.warn('ProjectDetail: No project ID provided');
+      setIsLoading(false);
+      setProject(null); // Ensure project is null when no ID is provided
+      return () => {};
+    }
+
+    console.log('ProjectDetail: Setting up event listener for projects-loaded');
+    // Set up event listener for projects loaded
+    api.onProjectsLoaded((loadedProjects) => {
+      console.log('ProjectDetail: Received projects from main process:', loadedProjects);
+      // Find the specific project by ID
+      const foundProject = loadedProjects.find(p => p.id === id);
+      if (foundProject) {
+        console.log('ProjectDetail: Found project:', foundProject);
+        setProject(foundProject);
+      } else {
+        console.warn(`ProjectDetail: Project with ID ${id} not found`);
+        setProject(null); // Ensure project is null when not found
+      }
+      setIsLoading(false);
+    });
+    
+    api.onError((error) => {
+      console.error('ProjectDetail: Error loading project:', error);
+      setIsLoading(false);
+      setProject(null); // Ensure project is null on error
+    });
+    
+    // Request projects to be loaded
+    console.log('ProjectDetail: Requesting projects from main process');
+    api.loadProjects();
+    
+    // Clean up event listeners
+    return () => {
+      console.log('ProjectDetail: Removing event listeners');
+      if (api.removeAllListeners) {
         api.removeAllListeners('projects-loaded');
         api.removeAllListeners('error');
-      };
-    } else {
-      // Mock data for development without Electron
-      const mockProject: ProjectDetails = {
-        id: id || '1',
-        name: `Project ${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}`,
-        path: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}`,
-        workingDirectory: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}`,
-        description: 'This is a sample project description. It would contain details about the project purpose and goals.',
-        created: new Date(2025, 5, 10),
-        lastOpened: new Date(2025, 6, 25),
-        sourceFolders: [
-          {
-            id: 'src-1',
-            path: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}/src`
-          },
-          {
-            id: 'assets-1',
-            path: `/Users/user/Documents/Projects/${id === '1' ? 'Alpha' : id === '2' ? 'Beta' : id === '3' ? 'Gamma' : 'Unknown'}/assets`
-          }
-        ]
-      };
-      
-      const timeoutId = setTimeout(() => {
-        setProject(mockProject);
-        setIsLoading(false);
-      }, 500);
-      
-      // Return cleanup function for non-Electron environment
-      return () => {
-        clearTimeout(timeoutId);
-      };
-    }
+      }
+    };
   }, [id, api]);
 
   const handleAddSourceDirectory = () => {

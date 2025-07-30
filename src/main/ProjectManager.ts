@@ -41,9 +41,12 @@ export class ProjectManager {
     this._validateWorkingDirectory(workingDirectory);
 
     try {
+      console.log(`Creating project: ${name} at ${workingDirectory}`);
+      
       // Check if project name already exists
       const nameExists = await this.dataPersistence.projectNameExists(name);
       if (nameExists) {
+        console.log(`Project name "${name}" already exists`);
         throw new Error(`Project name "${name}" already exists. Please choose a different name.`);
       }
 
@@ -77,15 +80,22 @@ export class ProjectManager {
       };
 
       // Create per-project database and initialize schema
+      console.log(`Ensuring .digr folder exists at ${resolvedPath}`);
       await this.ensureProjectDigrFolder(resolvedPath);
+      console.log(`Creating database manager for ${resolvedPath}`);
       const dbManager = new DatabaseManager(resolvedPath);
+      console.log(`Initializing project database for ${project.id}`);
       await dbManager.initializeProjectDatabase(project.id, project.name, resolvedPath);
+      console.log(`Creating project schema for ${project.id}`);
       await dbManager.createProjectSchema(project.id, project.name, resolvedPath);
+      console.log(`Closing project database for ${project.id}`);
       await dbManager.closeProjectDatabase();
 
       // Add to global registry
+      console.log(`Adding project ${project.id} to registry`);
       await this.dataPersistence.addProjectToRegistry(project);
       
+      console.log(`Project ${project.id} created successfully`);
       return project;
     } catch (error) {
       if ((error as Error).message.includes('already exists') || 

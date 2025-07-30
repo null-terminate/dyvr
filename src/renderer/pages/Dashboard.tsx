@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useElectron } from '../context/ElectronContext';
+import { Project } from '../types/electronTypes';
 
 interface ProjectSummary {
   id: string;
@@ -11,21 +13,41 @@ const Dashboard: React.FC = () => {
   const [recentProjects, setRecentProjects] = useState<ProjectSummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
+  const api = useElectron();
 
   useEffect(() => {
-    // In a real app, we would fetch this data from the main process
-    // For now, we'll use mock data
-    const mockProjects: ProjectSummary[] = [
-      { id: '1', name: 'Project Alpha', lastOpened: new Date(2025, 6, 25) },
-      { id: '2', name: 'Project Beta', lastOpened: new Date(2025, 6, 20) },
-      { id: '3', name: 'Project Gamma', lastOpened: new Date(2025, 6, 15) }
-    ];
-    
-    setTimeout(() => {
-      setRecentProjects(mockProjects);
+    if (!api) {
+      console.warn('Electron API not available, cannot load projects');
       setIsLoading(false);
-    }, 500);
-  }, []);
+      return;
+    }
+
+    // Set up event listener for when projects are loaded
+    const handleProjectsLoaded = (projects: any[]) => {
+      console.log('Projects loaded:', projects);
+      
+      // Convert Project to ProjectSummary
+      const projectSummaries: ProjectSummary[] = projects.map(project => ({
+        id: project.id,
+        name: project.name,
+        lastOpened: project.lastModified ? new Date(project.lastModified) : new Date()
+      }));
+      
+      setRecentProjects(projectSummaries);
+      setIsLoading(false);
+    };
+
+    // Register the event listener
+    api.onProjectsLoaded(handleProjectsLoaded);
+
+    // Request to load projects
+    api.loadProjects();
+
+    // Cleanup function to remove event listener
+    return () => {
+      api.removeAllListeners('projects-loaded');
+    };
+  }, [api]);
 
   const handleCreateProject = () => {
     // In a real app, this would open a dialog to create a new project

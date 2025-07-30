@@ -943,54 +943,25 @@
 
     // Load projects from main process
     function loadProjects() {
-      // For now, we'll use mock data until IPC is implemented
-      // This will be replaced with actual IPC communication
-      projects = [
-        {
-          id: '1',
-          name: 'Sample Project',
-          workingDirectory: '/Users/example/Documents/sample-project',
-          createdDate: new Date('2024-01-15'),
-          lastModified: new Date('2024-01-20'),
-          sourceFolders: [
-            {
-              id: 'sf1',
-              path: '/Users/example/Documents/sample-project/data',
-              addedDate: new Date('2024-01-16')
-            },
-            {
-              id: 'sf2',
-              path: '/Users/example/Documents/external-data',
-              addedDate: new Date('2024-01-18')
-            }
-          ],
-          views: [
-            {
-              id: 'v1',
-              name: 'Customer Data View',
-              createdDate: new Date('2024-01-17'),
-              lastModified: new Date('2024-01-19')
-            },
-            {
-              id: 'v2',
-              name: 'Sales Analysis',
-              createdDate: new Date('2024-01-19'),
-              lastModified: new Date('2024-01-20')
-            }
-          ]
-        },
-        {
-          id: '2',
-          name: 'Another Project',
-          workingDirectory: '/Users/example/Documents/another-project',
-          createdDate: new Date('2024-01-10'),
-          lastModified: new Date('2024-01-18'),
-          sourceFolders: [],
-          views: []
-        }
-      ];
-
-      renderProjectList();
+      // Check if window.api is available (it should be in Electron environment)
+      if (window.api) {
+        console.log('Index: Using Electron API to load projects');
+        
+        // Set up event listener for projects loaded
+        window.api.onProjectsLoaded((loadedProjects) => {
+          console.log('Index: Received projects from main process:', loadedProjects);
+          projects = loadedProjects;
+          renderProjectList();
+        });
+        
+        // Request projects to be loaded
+        console.log('Index: Requesting projects from main process');
+        window.api.loadProjects();
+      } else {
+        console.warn('Index: Electron API not available, using empty projects list');
+        projects = [];
+        renderProjectList();
+      }
     }
 
     // Render the project list in the sidebar

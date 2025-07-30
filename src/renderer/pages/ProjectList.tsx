@@ -18,67 +18,32 @@ const ProjectList: React.FC = () => {
   const api = useElectron();
 
   useEffect(() => {
-    if (api) {
-      // Set up event listener for projects loaded
-      api.onProjectsLoaded((loadedProjects) => {
-        setProjects(loadedProjects);
-        setIsLoading(false);
-      });
-      
-      // Request projects to be loaded
-      api.loadProjects();
-      
-      // Clean up event listener
-      return () => {
-        api.removeAllListeners('projects-loaded');
-      };
-    } else {
-      // Mock data for development without Electron
-      const mockProjects: Project[] = [
-        { 
-          id: '1', 
-          name: 'Project Alpha', 
-          path: '/Users/user/Documents/Projects/Alpha',
-          workingDirectory: '/Users/user/Documents/Projects/Alpha',
-          lastOpened: new Date(2025, 6, 25),
-          created: new Date(2025, 5, 10)
-        },
-        { 
-          id: '2', 
-          name: 'Project Beta', 
-          path: '/Users/user/Documents/Projects/Beta',
-          workingDirectory: '/Users/user/Documents/Projects/Beta',
-          lastOpened: new Date(2025, 6, 20),
-          created: new Date(2025, 4, 15)
-        },
-        { 
-          id: '3', 
-          name: 'Project Gamma', 
-          path: '/Users/user/Documents/Projects/Gamma',
-          workingDirectory: '/Users/user/Documents/Projects/Gamma',
-          lastOpened: new Date(2025, 6, 15),
-          created: new Date(2025, 3, 20)
-        },
-        { 
-          id: '4', 
-          name: 'Project Delta', 
-          path: '/Users/user/Documents/Projects/Delta',
-          workingDirectory: '/Users/user/Documents/Projects/Delta',
-          lastOpened: new Date(2025, 5, 10),
-          created: new Date(2025, 2, 5)
-        }
-      ];
-      
-      const timeoutId = setTimeout(() => {
-        setProjects(mockProjects);
-        setIsLoading(false);
-      }, 500);
-      
-      // Return cleanup function for non-Electron environment
-      return () => {
-        clearTimeout(timeoutId);
-      };
+    if (!api) {
+      console.warn('ProjectList: API is not available');
+      setIsLoading(false);
+      setProjects([]); // Set empty projects array when API is not available
+      return () => {};
     }
+
+    console.log('ProjectList: Setting up event listener for projects-loaded');
+    // Set up event listener for projects loaded
+    api.onProjectsLoaded((loadedProjects) => {
+      console.log('ProjectList: Received projects from main process:', loadedProjects);
+      setProjects(loadedProjects);
+      setIsLoading(false);
+    });
+    
+    // Request projects to be loaded
+    console.log('ProjectList: Requesting projects from main process');
+    api.loadProjects();
+    
+    // Clean up event listener
+    return () => {
+      console.log('ProjectList: Removing projects-loaded event listener');
+      if (api.removeAllListeners) {
+        api.removeAllListeners('projects-loaded');
+      }
+    };
   }, [api]);
 
   const handleCreateProject = () => {
