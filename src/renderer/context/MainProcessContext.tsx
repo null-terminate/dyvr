@@ -1,39 +1,39 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { MainProcessAPI } from '../types/electronTypes';
+import { MainProcessAPI } from '../types/mainProcessTypes';
 
 // Create a context for the Main Process API
-const ElectronContext = createContext<MainProcessAPI | undefined>(undefined);
+const MainProcessContext = createContext<MainProcessAPI | undefined>(undefined);
 
-interface ElectronProviderProps {
+interface MainProcessProviderProps {
   children: ReactNode;
 }
 
-export const ElectronProvider: React.FC<ElectronProviderProps> = ({ children }) => {
+export const MainProcessProvider: React.FC<MainProcessProviderProps> = ({ children }) => {
   const [api, setApi] = useState<Window['api'] | undefined>(undefined);
 
   useEffect(() => {
     // Check if window.api is available (it should be in Electron environment)
-    console.log('ElectronContext: Checking if window.api is available...');
-    console.log('ElectronContext: window.api =', window.api);
+    console.log('MainProcessContext: Checking if window.api is available...');
+    console.log('MainProcessContext: window.api =', window.api);
     if (window.api) {
-      console.log('ElectronContext: window.api is available, setting API');
+      console.log('MainProcessContext: window.api is available, setting API');
       setApi(window.api);
     } else {
-      console.warn('Electron API not available. Running in browser environment?');
+      console.warn('Main Process API not available. Running in browser environment?');
     }
   }, []);
 
   return (
-    <ElectronContext.Provider value={api}>
+    <MainProcessContext.Provider value={api}>
       {children}
-    </ElectronContext.Provider>
+    </MainProcessContext.Provider>
   );
 };
 
 
-// Custom hook to use the Electron API
-export const useElectron = () => {
-  const context = useContext(ElectronContext);
+// Custom hook to use the Main Process API
+export const useMainProcess = () => {
+  const context = useContext(MainProcessContext);
   if (context === undefined) {
     // Return undefined instead of mock API
     return undefined;
@@ -41,9 +41,9 @@ export const useElectron = () => {
   return context;
 };
 
-// Hook for handling errors from the Electron API
-export const useElectronErrors = () => {
-  const api = useElectron();
+// Hook for handling errors from the Main Process API
+export const useMainProcessErrors = () => {
+  const api = useMainProcess();
   const [error, setError] = useState<{ message: string; details?: string } | null>(null);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export const useElectronErrors = () => {
 
     const handleError = (err: { message: string; details?: string }) => {
       setError(err);
-      console.error('Electron API Error:', err);
+      console.error('Main Process API Error:', err);
     };
 
     api.onError(handleError);

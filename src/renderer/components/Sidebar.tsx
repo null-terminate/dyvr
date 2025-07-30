@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useElectron } from '../context/ElectronContext';
+import { useMainProcess } from '../context/MainProcessContext';
 
 interface Project {
   id: string;
@@ -21,7 +21,7 @@ const Sidebar: React.FC = () => {
   // Refs to track initial positions during resize
   const initialMouseXRef = useRef<number>(0);
   const initialSidebarWidthRef = useRef<number>(DEFAULT_SIDEBAR_WIDTH);
-  const api = useElectron();
+  const api = useMainProcess();
   const location = useLocation();
   
   // Handle mouse events for resizing
@@ -99,7 +99,7 @@ const Sidebar: React.FC = () => {
     
     console.log('Sidebar: Setting up projects-loaded event listener');
     // Set up event listener for projects loaded
-    api.onProjectsLoaded((loadedProjects) => {
+    api.onProjectsLoaded((loadedProjects: Project[]) => {
       console.log('Sidebar: Received projects from main process:', loadedProjects);
       console.log('Sidebar: Project count:', loadedProjects.length);
       for (let i = 0; i < loadedProjects.length; i++) {
@@ -109,7 +109,7 @@ const Sidebar: React.FC = () => {
     });
     
     // Set up event listener for when a project is created
-    api.onProjectCreated((project) => {
+    api.onProjectCreated((project: Project) => {
       console.log('Sidebar: Project created:', project);
       
       // Refresh the project list

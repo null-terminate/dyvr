@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useElectron } from '../context/ElectronContext';
-import { Project } from '../types/electronTypes';
+import { useMainProcess } from '../context/MainProcessContext';
+import { Project } from '../types/mainProcessTypes';
 
 interface ProjectSummary {
   id: string;
@@ -19,7 +19,7 @@ const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen, onClo
   const [projectName, setProjectName] = useState('');
   const [folderPath, setFolderPath] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const api = useElectron();
+  const api = useMainProcess();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,7 +163,7 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState<boolean>(false);
   const navigate = useNavigate();
-  const api = useElectron();
+  const api = useMainProcess();
 
   useEffect(() => {
     if (!api) {
@@ -173,14 +173,14 @@ const Dashboard: React.FC = () => {
     }
 
     // Set up event listener for when projects are loaded
-    const handleProjectsLoaded = (projects: any[]) => {
+    const handleProjectsLoaded = (projects: Project[]) => {
       console.log('Projects loaded:', projects);
       
       // Convert Project to ProjectSummary
       const projectSummaries: ProjectSummary[] = projects.map(project => ({
         id: project.id,
         name: project.name,
-        lastOpened: project.lastModified ? new Date(project.lastModified) : new Date()
+        lastOpened: project.lastOpened ? new Date(project.lastOpened) : new Date()
       }));
       
       setRecentProjects(projectSummaries);
@@ -188,7 +188,7 @@ const Dashboard: React.FC = () => {
     };
 
     // Set up event listener for when a project is created
-    const handleProjectCreated = (project: any) => {
+    const handleProjectCreated = (project: Project) => {
       console.log('Project created:', project);
       
       // Refresh the project list

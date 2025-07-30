@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './components/App';
-import { ElectronProvider } from './context/ElectronContext';
+import { MainProcessProvider } from './context/MainProcessContext';
 import './styles/global.css';
 
 const root = ReactDOM.createRoot(
@@ -11,10 +11,10 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <ElectronProvider>
+    <MainProcessProvider>
       <HashRouter>
         <App />
       </HashRouter>
-    </ElectronProvider>
+    </MainProcessProvider>
   </React.StrictMode>
 );

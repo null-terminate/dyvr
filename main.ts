@@ -106,62 +106,31 @@ async function initializeManagers(): Promise<void> {
 }
 
 /**
- * Load projects from digr.config and ensure they're in the project registry
+ * Initialize project databases for projects in digr.config
  */
 async function loadProjectsFromDigrConfig(): Promise<void> {
   try {
-    const digrConfig = await digrConfigManager.getConfig();
-    console.log('Loaded digr.config:', JSON.stringify(digrConfig));
-    const existingProjects = await projectManager.getProjects();
-    console.log('Existing projects:', JSON.stringify(existingProjects));
+    // Projects are now loaded directly from digr.config via DataPersistence
+    // We just need to ensure project databases are initialized
+    const projects = await projectManager.getProjects();
+    console.log(`Loaded ${projects.length} projects from digr.config`);
     
-    // Add projects from digr.config that aren't in the registry
-    for (const digrProject of digrConfig.projects) {
-      const projectPath = digrProject.path;
-      // Use the folder name as the project name
-      const projectName = path.basename(projectPath);
-      
-      const existingProject = existingProjects.find(p => 
-        path.resolve(p.workingDirectory) === path.resolve(projectPath)
-      );
-      
-      if (!existingProject) {
-        try {
-          console.log(`Creating project from digr.config: ${projectName} at ${projectPath}`);
-          
-          // Create the project regardless of whether .digr folder exists
-          try {
-            // Ensure the directory exists
-            if (!fs.existsSync(projectPath)) {
-              fs.mkdirSync(projectPath, { recursive: true });
-            }
-            
-            await projectManager.createProject(projectName, projectPath);
-            console.log(`Successfully created project: ${projectName}`);
-          } catch (createError) {
-            console.error(`Error creating project: ${(createError as Error).message}`);
-            
-            // If the error is related to the database, try to create the project anyway
-            if ((createError as Error).message.includes('database') || 
-                (createError as Error).message.includes('SQL')) {
-              try {
-                console.log(`Attempting to create project without database validation: ${projectName}`);
-                // Force create the project by ensuring the .digr folder exists
-                if (typeof projectManager.ensureProjectDigrFolder === 'function') {
-                  await projectManager.ensureProjectDigrFolder(projectPath);
-                  await projectManager.createProject(projectName, projectPath);
-                  console.log(`Successfully created project without database validation: ${projectName}`);
-                } else {
-                  console.error(`ProjectManager.ensureProjectDigrFolder is not a function`);
-                }
-              } catch (forceError) {
-                console.error(`Failed to force create project: ${(forceError as Error).message}`);
-              }
-            }
-          }
-        } catch (error) {
-          console.warn(`Failed to create project from digr.config: ${(error as Error).message}`);
+    // Initialize project databases
+    for (const project of projects) {
+      try {
+        const projectPath = project.workingDirectory;
+        
+        // Ensure the directory exists
+        if (!fs.existsSync(projectPath)) {
+          fs.mkdirSync(projectPath, { recursive: true });
         }
+        
+        // Ensure .digr folder exists
+        await projectManager.ensureProjectDigrFolder(projectPath);
+        
+        console.log(`Initialized project database for: ${project.name} at ${projectPath}`);
+      } catch (error) {
+        console.warn(`Failed to initialize project database: ${(error as Error).message}`);
       }
     }
   } catch (error) {

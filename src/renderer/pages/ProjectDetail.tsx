@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useElectron } from '../context/ElectronContext';
+import { useMainProcess } from '../context/MainProcessContext';
 
 interface ProjectDetails {
   id: string;
@@ -21,7 +21,7 @@ const ProjectDetail: React.FC = () => {
   const [project, setProject] = useState<ProjectDetails | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'settings'>('details');
-  const api = useElectron();
+  const api = useMainProcess();
 
   useEffect(() => {
     if (!api) {
@@ -40,7 +40,7 @@ const ProjectDetail: React.FC = () => {
 
     console.log('ProjectDetail: Setting up event listener for projects-loaded');
     // Set up event listener for projects loaded
-    api.onProjectsLoaded((loadedProjects) => {
+    api.onProjectsLoaded((loadedProjects: any[]) => {
       console.log('ProjectDetail: Received projects from main process:', loadedProjects);
       // Find the specific project by ID
       const foundProject = loadedProjects.find(p => p.id === id);

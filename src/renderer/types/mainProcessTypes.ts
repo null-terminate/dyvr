@@ -1,4 +1,4 @@
-// Export types for the Electron API
+// Export types for the Main Process API
 
 export interface ProjectSummary {
   id: string;

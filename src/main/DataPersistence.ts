@@ -1,27 +1,29 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { app } from 'electron';
+import * as os from 'os';
+import { v4 as uuidv4 } from 'uuid';
 import { Project } from '../types';
-
-interface ProjectRegistryData {
-  projects: Project[];
-}
+import { DigrConfigManager } from './DigrConfigManager';
 
 /**
- * DataPersistence handles saving/loading global application metadata and manages project registry.
- * This class manages the global project registry stored as JSON, while individual project data
- * is stored in per-project .digr databases managed by DatabaseManager.
+ * DataPersistence handles project data operations by directly using the digr.config file
+ * as the single source of truth for project existence.
  */
 export class DataPersistence {
   private isInitialized: boolean = false;
+  private digrConfigManager: DigrConfigManager;
+  private projectCache: Map<string, Project> = new Map();
+
+  constructor() {
+    this.digrConfigManager = new DigrConfigManager();
+  }
 
   /**
    * Initialize the data persistence layer
-   * Sets up the application data directory and ensures it exists
    */
   async initialize(): Promise<void> {
     try {
-      await this.ensureApplicationDataDirectory();
+      await this.digrConfigManager.initialize();
       this.isInitialized = true;
     } catch (error) {
       throw new Error(`Failed to initialize data persistence: ${(error as Error).message}`);
@@ -29,144 +31,72 @@ export class DataPersistence {
   }
 
   /**
-   * Save the project registry to the global JSON file
-   */
-  async saveProjectRegistry(projects: Project[]): Promise<void> {
-    this._validateInitialized();
-
-    if (!Array.isArray(projects)) {
-      throw new Error('Projects must be an array');
-    }
-
-    try {
-      const registryData: ProjectRegistryData = { projects };
-      const registryPath = this.getProjectRegistryPath();
-      
-      // Use both sync and async methods to support both test environments
-      fs.writeFileSync(
-        registryPath, 
-        JSON.stringify(registryData, null, 2), 
-        'utf8'
-      );
-      
-      await fs.promises.writeFile(
-        registryPath, 
-        JSON.stringify(registryData, null, 2), 
-        'utf8'
-      );
-    } catch (error) {
-      throw new Error(`Failed to save project registry: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Load the project registry from the global JSON file
+   * Load projects directly from digr.config
    */
   async loadProjectRegistry(): Promise<Project[]> {
     this._validateInitialized();
 
     try {
-      const registryPath = this.getProjectRegistryPath();
+      const config = await this.digrConfigManager.getConfig();
+      const projects: Project[] = [];
       
-      if (!fs.existsSync(registryPath)) {
-        return [];
-      }
-
-      // Use both sync and async methods to support both test environments
-      let data: string;
-      try {
-        data = fs.readFileSync(registryPath, 'utf8');
-      } catch (err) {
-        data = await fs.promises.readFile(registryPath, 'utf8');
-      }
-      
-      try {
-        const registryData: ProjectRegistryData = JSON.parse(data);
+      for (const configProject of config.projects) {
+        const projectPath = configProject.path;
         
-        // Convert date strings back to Date objects
-        return registryData.projects.map(project => ({
-          ...project,
-          createdDate: new Date(project.createdDate),
-          lastModified: new Date(project.lastModified),
-          sourceFolders: project.sourceFolders.map(folder => ({
-            ...folder,
-            addedDate: new Date(folder.addedDate)
-          }))
-        }));
-      } catch (error) {
-        // Only log warning in non-test environments
-        if (process.env['NODE_ENV'] !== 'test') {
-          console.warn(`Invalid JSON in project registry: ${(error as Error).message}`);
+        // Check if we have this project in cache
+        const cachedProject = Array.from(this.projectCache.values())
+          .find(p => path.resolve(p.workingDirectory) === path.resolve(projectPath));
+        
+        if (cachedProject) {
+          projects.push(cachedProject);
+        } else {
+          // Create a new project object
+          const projectName = path.basename(projectPath);
+          const project: Project = {
+            id: uuidv4(),
+            name: projectName,
+            workingDirectory: projectPath,
+            sourceFolders: [],
+            createdDate: new Date(),
+            lastModified: new Date()
+          };
+          
+          // Add to cache
+          this.projectCache.set(project.id, project);
+          projects.push(project);
         }
-        return [];
       }
+      
+      return projects;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return [];
-      }
-      throw new Error(`Failed to load project registry: ${(error as Error).message}`);
+      console.error('Failed to load projects from digr.config:', error);
+      return [];
     }
   }
 
   /**
-   * Get the path to the project registry JSON file
-   */
-  getProjectRegistryPath(): string {
-    return path.join(this.getApplicationDataDirectory(), 'project-registry.json');
-  }
-
-  /**
-   * Ensure the application data directory exists
-   */
-  async ensureApplicationDataDirectory(): Promise<void> {
-    try {
-      const dataDir = this.getApplicationDataDirectory();
-      if (!fs.existsSync(dataDir)) {
-        // Use both sync and async methods to support both test environments
-        fs.mkdirSync(dataDir, { recursive: true });
-        await fs.promises.mkdir(dataDir, { recursive: true });
-      }
-    } catch (error) {
-      throw new Error(`Failed to create application data directory: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Add a project to the registry
+   * Add a project to digr.config
    */
   async addProjectToRegistry(project: Project): Promise<void> {
     this._validateInitialized();
     this._validateProject(project);
 
     try {
-      const projects = await this.loadProjectRegistry();
+      // Add to digr.config
+      await this.digrConfigManager.addProject(project.workingDirectory);
       
-      // Check if project already exists
-      const existingIndex = projects.findIndex(p => p.id === project.id);
-      
-      if (existingIndex >= 0) {
-        // Update existing project
-        projects[existingIndex] = {
-          ...project,
-          lastModified: new Date()
-        };
-      } else {
-        // Add new project
-        projects.push({
-          ...project,
-          createdDate: project.createdDate || new Date(),
-          lastModified: new Date()
-        });
-      }
-
-      await this.saveProjectRegistry(projects);
+      // Update cache
+      this.projectCache.set(project.id, {
+        ...project,
+        lastModified: new Date()
+      });
     } catch (error) {
-      throw new Error(`Failed to add project to registry: ${(error as Error).message}`);
+      throw new Error(`Failed to add project: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Remove a project from the registry
+   * Remove a project from digr.config
    */
   async removeProjectFromRegistry(projectId: string): Promise<void> {
     this._validateInitialized();
@@ -176,17 +106,32 @@ export class DataPersistence {
     }
 
     try {
-      const projects = await this.loadProjectRegistry();
-      const filteredProjects = projects.filter(p => p.id !== projectId);
-      
-      await this.saveProjectRegistry(filteredProjects);
+      // Get project from cache
+      const project = this.projectCache.get(projectId);
+      if (!project) {
+        // Try to find it in the loaded projects
+        const projects = await this.loadProjectRegistry();
+        const foundProject = projects.find(p => p.id === projectId);
+        if (!foundProject) {
+          throw new Error(`Project with ID ${projectId} not found`);
+        }
+        
+        // Remove from digr.config
+        await this.digrConfigManager.removeProject(foundProject.workingDirectory);
+      } else {
+        // Remove from digr.config
+        await this.digrConfigManager.removeProject(project.workingDirectory);
+        
+        // Remove from cache
+        this.projectCache.delete(projectId);
+      }
     } catch (error) {
-      throw new Error(`Failed to remove project from registry: ${(error as Error).message}`);
+      throw new Error(`Failed to remove project: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Update a project in the registry
+   * Update a project
    */
   async updateProjectInRegistry(projectId: string, updates: Partial<Project>): Promise<void> {
     this._validateInitialized();
@@ -196,31 +141,37 @@ export class DataPersistence {
     }
 
     try {
-      const projects = await this.loadProjectRegistry();
-      const projectIndex = projects.findIndex(p => p.id === projectId);
+      // Get project from cache
+      let project = this.projectCache.get(projectId);
       
-      if (projectIndex === -1) {
-        throw new Error(`Project with ID ${projectId} not found in registry`);
-      }
-
-      // Update the project with new data
-      const existingProject = projects[projectIndex];
-      if (!existingProject) {
-        throw new Error(`Project with ID ${projectId} not found in registry`);
+      if (!project) {
+        // Try to find it in the loaded projects
+        const projects = await this.loadProjectRegistry();
+        project = projects.find(p => p.id === projectId);
+        
+        if (!project) {
+          throw new Error(`Project with ID ${projectId} not found`);
+        }
       }
       
-      projects[projectIndex] = {
-        id: existingProject.id,
-        name: updates.name || existingProject.name,
-        workingDirectory: updates.workingDirectory || existingProject.workingDirectory,
-        sourceFolders: updates.sourceFolders || existingProject.sourceFolders,
-        createdDate: existingProject.createdDate,
+      // If working directory changed, update digr.config
+      if (updates.workingDirectory && updates.workingDirectory !== project.workingDirectory) {
+        await this.digrConfigManager.removeProject(project.workingDirectory);
+        await this.digrConfigManager.addProject(updates.workingDirectory);
+      }
+      
+      // Update cache
+      const updatedProject = {
+        ...project,
+        name: updates.name || project.name,
+        workingDirectory: updates.workingDirectory || project.workingDirectory,
+        sourceFolders: updates.sourceFolders || project.sourceFolders,
         lastModified: new Date()
       };
-
-      await this.saveProjectRegistry(projects);
+      
+      this.projectCache.set(projectId, updatedProject);
     } catch (error) {
-      throw new Error(`Failed to update project in registry: ${(error as Error).message}`);
+      throw new Error(`Failed to update project: ${(error as Error).message}`);
     }
   }
 
@@ -244,19 +195,6 @@ export class DataPersistence {
       );
     } catch (error) {
       throw new Error(`Failed to check project name existence: ${(error as Error).message}`);
-    }
-  }
-
-  /**
-   * Get the application data directory path
-   */
-  private getApplicationDataDirectory(): string {
-    try {
-      // Try to use Electron app's getPath function
-      return app.getPath('userData');
-    } catch (error) {
-      // Fallback for environments where Electron app is not available
-      return path.join(process.cwd(), 'test-data');
     }
   }
 

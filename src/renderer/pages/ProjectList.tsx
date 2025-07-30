@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useElectron } from '../context/ElectronContext';
+import { useMainProcess } from '../context/MainProcessContext';
 
 interface Project {
   id: string;
@@ -15,7 +15,7 @@ const ProjectList: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
-  const api = useElectron();
+  const api = useMainProcess();
 
   useEffect(() => {
     if (!api) {
@@ -27,7 +27,7 @@ const ProjectList: React.FC = () => {
 
     console.log('ProjectList: Setting up event listener for projects-loaded');
     // Set up event listener for projects loaded
-    api.onProjectsLoaded((loadedProjects) => {
+    api.onProjectsLoaded((loadedProjects: Project[]) => {
       console.log('ProjectList: Received projects from main process:', loadedProjects);
       setProjects(loadedProjects);
       setIsLoading(false);
