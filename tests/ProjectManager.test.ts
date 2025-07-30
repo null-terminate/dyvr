@@ -34,9 +34,6 @@ jest.mock('path', () => {
 import * as os from 'os';
 import { createTempConfigPath } from './setup';
 
-// Mock DataPersistence
-jest.mock('../src/main/DataPersistence');
-
 // Mock DatabaseManager
 jest.mock('../src/main/DatabaseManager', () => {
   return {
@@ -50,40 +47,45 @@ jest.mock('../src/main/DatabaseManager', () => {
   };
 });
 
+// Mock DigrConfigManager
+jest.mock('../src/main/DigrConfigManager', () => {
+  return {
+    DigrConfigManager: jest.fn().mockImplementation(() => ({
+      initialize: jest.fn().mockResolvedValue(undefined),
+      getConfig: jest.fn().mockResolvedValue({ projects: [] }),
+      addProject: jest.fn().mockResolvedValue(undefined),
+      removeProject: jest.fn().mockResolvedValue(undefined),
+      saveConfig: jest.fn().mockResolvedValue(undefined)
+    }))
+  };
+});
+
 // Create a temporary test config path
 const TEST_CONFIG_PATH = createTempConfigPath();
 
 import { ProjectManager } from '../src/main/ProjectManager';
-import { DataPersistence } from '../src/main/DataPersistence';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 
 // Type the mocked modules
 const mockedFs = fs as jest.Mocked<typeof fs>;
-const MockedDataPersistence = DataPersistence as jest.MockedClass<typeof DataPersistence>;
 
 describe('ProjectManager', () => {
   let projectManager: ProjectManager;
-  let mockDataPersistence: any;
+  let mockDigrConfigManager: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Setup DataPersistence mock
-    mockDataPersistence = {
+    // Setup DigrConfigManager mock
+    mockDigrConfigManager = {
       initialize: jest.fn().mockResolvedValue(undefined),
-      projectNameExists: jest.fn().mockResolvedValue(false),
-      addProjectToRegistry: jest.fn().mockResolvedValue(undefined),
-      updateProjectInRegistry: jest.fn().mockResolvedValue(undefined),
-      removeProjectFromRegistry: jest.fn().mockResolvedValue(undefined),
-      loadProjectRegistry: jest.fn().mockResolvedValue([]),
-      loadSourceFoldersForProject: jest.fn().mockResolvedValue([]),
-      close: jest.fn().mockResolvedValue(undefined),
-      resetCache: jest.fn().mockResolvedValue(undefined)
+      getConfig: jest.fn().mockResolvedValue({ projects: [] }),
+      addProject: jest.fn().mockResolvedValue(undefined),
+      removeProject: jest.fn().mockResolvedValue(undefined),
+      saveConfig: jest.fn().mockResolvedValue(undefined)
     };
-    
-    MockedDataPersistence.mockImplementation(() => mockDataPersistence);
     
     // Setup fs mock
     jest.spyOn(fs, 'existsSync').mockReturnValue(true);
@@ -93,18 +95,21 @@ describe('ProjectManager', () => {
     
     // Create ProjectManager with test config path
     projectManager = new ProjectManager(TEST_CONFIG_PATH);
+    
+    // Set the mock DigrConfigManager
+    (projectManager as any).digrConfigManager = mockDigrConfigManager;
   });
 
   describe('initialization', () => {
     test('should initialize successfully', async () => {
       await projectManager.initialize();
       
-      expect(mockDataPersistence.initialize).toHaveBeenCalled();
+      expect(mockDigrConfigManager.initialize).toHaveBeenCalled();
       expect((projectManager as any).isInitialized).toBe(true);
     });
 
     test('should throw error if initialization fails', async () => {
-      mockDataPersistence.initialize.mockRejectedValue(new Error('Init error'));
+      mockDigrConfigManager.initialize.mockRejectedValue(new Error('Init error'));
       
       await expect(projectManager.initialize()).rejects.toThrow('Failed to initialize ProjectManager: Init error');
     });
@@ -113,6 +118,9 @@ describe('ProjectManager', () => {
   describe('createProject', () => {
     beforeEach(async () => {
       await projectManager.initialize();
+      
+      // Mock projectNameExists to return false by default
+      jest.spyOn(projectManager, 'projectNameExists').mockResolvedValue(false);
     });
 
     test('should create project successfully', async () => {
@@ -133,11 +141,14 @@ describe('ProjectManager', () => {
 
       // Mock fs.existsSync to return true for the project directory
       (fs.existsSync as jest.Mock).mockImplementation((path) => true);
+      
+      // Mock addProjectToRegistry
+      jest.spyOn(projectManager, 'addProjectToRegistry').mockResolvedValue(undefined);
 
       const result = await projectManager.createProject('Test Project', '/test/path');
 
-      expect(mockDataPersistence.projectNameExists).toHaveBeenCalledWith('Test Project');
-      expect(mockDataPersistence.addProjectToRegistry).toHaveBeenCalledWith(
+      expect(projectManager.projectNameExists).toHaveBeenCalledWith('Test Project');
+      expect(projectManager.addProjectToRegistry).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'test-uuid-1234',
           name: 'Test Project',
@@ -162,6 +173,9 @@ describe('ProjectManager', () => {
       
       // Force mkdirSync to be called by mocking path.join to return a path that doesn't exist
       (fs.existsSync as jest.Mock).mockImplementationOnce(() => false);
+      
+      // Mock addProjectToRegistry
+      jest.spyOn(projectManager, 'addProjectToRegistry').mockResolvedValue(undefined);
 
       await projectManager.createProject('Test Project', '/new/path');
 
@@ -169,7 +183,7 @@ describe('ProjectManager', () => {
     });
 
     test('should throw error if project name already exists', async () => {
-      mockDataPersistence.projectNameExists.mockResolvedValue(true);
+      jest.spyOn(projectManager, 'projectNameExists').mockResolvedValue(true);
 
       await expect(projectManager.createProject('Existing Project', '/test/path'))
         .rejects.toThrow('Project name "Existing Project" already exists');
@@ -223,16 +237,18 @@ describe('ProjectManager', () => {
         lastModified: new Date()
       };
 
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([mockProject]);
+      // Mock loadProjectRegistry
+      jest.spyOn(projectManager, 'loadProjectRegistry').mockResolvedValue([mockProject]);
 
       const result = await projectManager.getProject('proj-1');
 
-      expect(mockDataPersistence.loadProjectRegistry).toHaveBeenCalled();
+      expect(projectManager.loadProjectRegistry).toHaveBeenCalled();
       expect(result).toEqual(mockProject);
     });
 
     test('should return null if project not found', async () => {
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([]);
+      // Mock loadProjectRegistry
+      jest.spyOn(projectManager, 'loadProjectRegistry').mockResolvedValue([]);
 
       const result = await projectManager.getProject('nonexistent');
 
@@ -251,19 +267,19 @@ describe('ProjectManager', () => {
 
     test('should get all projects successfully', async () => {
       const mockProjects = [
-        { id: 'proj-1', name: 'Project 1', sourceFolders: [], createdDate: new Date(), lastModified: new Date() },
-        { id: 'proj-2', name: 'Project 2', sourceFolders: [], createdDate: new Date(), lastModified: new Date() }
+        { id: 'proj-1', name: 'Project 1', workingDirectory: '/path1', sourceFolders: [], createdDate: new Date(), lastModified: new Date() },
+        { id: 'proj-2', name: 'Project 2', workingDirectory: '/path2', sourceFolders: [], createdDate: new Date(), lastModified: new Date() }
       ];
 
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue(mockProjects);
+      // Mock loadProjectRegistry
+      jest.spyOn(projectManager, 'loadProjectRegistry').mockResolvedValue(mockProjects);
 
       const result = await projectManager.getProjects();
 
-      expect(mockDataPersistence.loadProjectRegistry).toHaveBeenCalled();
+      expect(projectManager.loadProjectRegistry).toHaveBeenCalled();
       expect(result).toEqual(mockProjects);
     });
   });
-
 
   describe('deleteProject', () => {
     beforeEach(async () => {
@@ -280,12 +296,23 @@ describe('ProjectManager', () => {
         lastModified: new Date()
       };
       
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([existingProject]);
-      mockDataPersistence.removeProjectFromRegistry.mockResolvedValue();
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(existingProject);
+      
+      // Mock removeProjectFromRegistry
+      jest.spyOn(projectManager, 'removeProjectFromRegistry').mockResolvedValue(undefined);
 
       await projectManager.deleteProject('proj-1');
 
-      expect(mockDataPersistence.removeProjectFromRegistry).toHaveBeenCalledWith('proj-1');
+      expect(projectManager.removeProjectFromRegistry).toHaveBeenCalledWith('proj-1');
+    });
+
+    test('should throw error if project not found', async () => {
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(null);
+
+      await expect(projectManager.deleteProject('nonexistent'))
+        .rejects.toThrow('Project with ID "nonexistent" not found');
     });
 
     test('should validate project ID', async () => {
@@ -311,11 +338,21 @@ describe('ProjectManager', () => {
       // Path is already mocked at the module level
       (path.resolve as jest.Mock).mockReturnValue('/resolved/source/path');
       
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([mockProject]);
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(mockProject);
+      
+      // Mock updateProjectInRegistry
+      jest.spyOn(projectManager, 'updateProjectInRegistry').mockResolvedValue(undefined);
+      
+      // Mock openProjectDatabase
+      jest.spyOn(projectManager, 'openProjectDatabase').mockResolvedValue({
+        executeNonQuery: jest.fn().mockResolvedValue({ lastID: 1, changes: 1 }),
+        closeProjectDatabase: jest.fn().mockResolvedValue(undefined)
+      } as any);
 
       await projectManager.addSourceFolder('proj-1', '/source/path');
 
-      expect(mockDataPersistence.updateProjectInRegistry).toHaveBeenCalledWith(
+      expect(projectManager.updateProjectInRegistry).toHaveBeenCalledWith(
         'proj-1',
         expect.objectContaining({
           sourceFolders: expect.arrayContaining([
@@ -331,7 +368,8 @@ describe('ProjectManager', () => {
     });
 
     test('should throw error if project not found', async () => {
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([]);
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(null);
 
       await expect(projectManager.addSourceFolder('nonexistent', '/source/path'))
         .rejects.toThrow('Project with ID "nonexistent" not found');
@@ -347,7 +385,9 @@ describe('ProjectManager', () => {
         lastModified: new Date()
       };
       
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([mockProject]);
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(mockProject);
+      
       (fs.existsSync as jest.Mock).mockReturnValue(false);
 
       await expect(projectManager.addSourceFolder('proj-1', '/nonexistent/path'))
@@ -364,7 +404,9 @@ describe('ProjectManager', () => {
         lastModified: new Date()
       };
       
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([mockProject]);
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(mockProject);
+      
       (fs.statSync as jest.Mock).mockReturnValue({ isDirectory: () => false });
 
       await expect(projectManager.addSourceFolder('proj-1', '/file/path'))
@@ -381,7 +423,9 @@ describe('ProjectManager', () => {
         lastModified: new Date()
       };
       
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([mockProject]);
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(mockProject);
+      
       (fs.accessSync as jest.Mock).mockImplementation(() => {
         throw new Error('Access denied');
       });
@@ -415,11 +459,24 @@ describe('ProjectManager', () => {
         lastModified: new Date()
       };
       
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([mockProject]);
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(mockProject);
+      
+      // Mock updateProjectInRegistry
+      jest.spyOn(projectManager, 'updateProjectInRegistry').mockResolvedValue(undefined);
+      
+      // Mock openProjectDatabase
+      jest.spyOn(projectManager, 'openProjectDatabase').mockResolvedValue({
+        executeNonQuery: jest.fn().mockResolvedValue({ lastID: 1, changes: 1 }),
+        closeProjectDatabase: jest.fn().mockResolvedValue(undefined)
+      } as any);
+      
+      // Mock path.resolve
+      (path.resolve as jest.Mock).mockReturnValue('/source/path');
 
       await projectManager.removeSourceFolder('proj-1', '/source/path');
 
-      expect(mockDataPersistence.updateProjectInRegistry).toHaveBeenCalledWith(
+      expect(projectManager.updateProjectInRegistry).toHaveBeenCalledWith(
         'proj-1',
         expect.objectContaining({
           sourceFolders: []
@@ -456,7 +513,8 @@ describe('ProjectManager', () => {
         lastModified: new Date()
       };
       
-      mockDataPersistence.loadProjectRegistry.mockResolvedValue([mockProject]);
+      // Mock getProject
+      jest.spyOn(projectManager, 'getProject').mockResolvedValue(mockProject);
 
       const result = await projectManager.getSourceFolders('proj-1');
 
@@ -478,7 +536,7 @@ describe('ProjectManager', () => {
   });
 
   describe('cleanup', () => {
-    test('should close data persistence', async () => {
+    test('should close resources', async () => {
       await projectManager.initialize();
       await projectManager.close();
 
@@ -487,20 +545,135 @@ describe('ProjectManager', () => {
       
       // Verify that all project databases are closed
       expect((projectManager as any).projectDatabases.size).toBe(0);
+      
+      // Verify that the project cache is cleared
+      expect((projectManager as any).projectCache.size).toBe(0);
+    });
+  });
+  
+  describe('loadProjectRegistry', () => {
+    beforeEach(async () => {
+      await projectManager.initialize();
     });
 
-    test('should not reset DataPersistence cache when closing', async () => {
-      // Initialize the ProjectManager
+    test('should load project registry successfully', async () => {
+      // Mock DigrConfigManager.getConfig to return a project
+      const mockProjects = [
+        {
+          path: '/path/to/project'
+        }
+      ];
+      
+      // Mock the DigrConfigManager.getConfig method
+      mockDigrConfigManager.getConfig.mockResolvedValue({ projects: mockProjects });
+      
+      // Mock uuid to return a consistent ID
+      jest.spyOn(require('uuid'), 'v4').mockReturnValue('proj-1');
+
+      const result = await projectManager.loadProjectRegistry();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('proj-1');
+      expect(result[0]?.name).toBe('project'); // Name is derived from path basename
+      expect(result[0]?.workingDirectory).toBe('/path/to/project');
+      expect(result[0]?.sourceFolders).toHaveLength(0);
+      expect(result[0]?.createdDate).toBeInstanceOf(Date);
+      expect(result[0]?.lastModified).toBeInstanceOf(Date);
+    });
+
+    test('should handle errors gracefully', async () => {
+      // Mock DigrConfigManager.getConfig to throw an error
+      mockDigrConfigManager.getConfig.mockRejectedValue(new Error('Failed to get config'));
+
+      const result = await projectManager.loadProjectRegistry();
+
+      expect(result).toEqual([]);
+    });
+  });
+  
+  describe('projectNameExists', () => {
+    beforeEach(async () => {
       await projectManager.initialize();
+    });
+
+    test('should check if project name exists', async () => {
+      // Mock loadProjectRegistry to return a project
+      jest.spyOn(projectManager, 'loadProjectRegistry').mockResolvedValue([
+        {
+          id: 'proj-1',
+          name: 'Test Project',
+          workingDirectory: '/path/to/project',
+          sourceFolders: [],
+          createdDate: new Date('2023-01-01'),
+          lastModified: new Date('2023-01-01')
+        }
+      ]);
       
-      // Clear previous calls to resetCache
-      mockDataPersistence.resetCache.mockClear();
+      const exists = await projectManager.projectNameExists('Test Project');
+      expect(exists).toBe(true);
       
-      // Close the ProjectManager
-      await projectManager.close();
+      const notExists = await projectManager.projectNameExists('Non-existent Project');
+      expect(notExists).toBe(false);
       
-      // Verify that resetCache was not called
-      expect(mockDataPersistence.resetCache).not.toHaveBeenCalled();
+      // Test with exclude project ID
+      const existsButExcluded = await projectManager.projectNameExists('Test Project', 'proj-1');
+      expect(existsButExcluded).toBe(false);
+    });
+  });
+  
+  describe('updateProjectInRegistry', () => {
+    beforeEach(async () => {
+      await projectManager.initialize();
+    });
+
+    test('should update project in registry', async () => {
+      // Set up the cache with a project
+      const project = {
+        id: 'proj-1',
+        name: 'Test Project',
+        workingDirectory: '/path/to/project',
+        sourceFolders: [],
+        createdDate: new Date('2023-01-01'),
+        lastModified: new Date('2023-01-01')
+      };
+      (projectManager as any).projectCache.set('proj-1', project);
+      
+      await projectManager.updateProjectInRegistry('proj-1', { name: 'Updated Project' });
+      
+      // Verify that the project was updated in the cache
+      const updatedProject = (projectManager as any).projectCache.get('proj-1');
+      expect(updatedProject.name).toBe('Updated Project');
+    });
+    
+    test('should throw when updating non-existent project', async () => {
+      // Mock loadProjectRegistry to return empty array
+      jest.spyOn(projectManager, 'loadProjectRegistry').mockResolvedValue([]);
+      
+      await expect(projectManager.updateProjectInRegistry('non-existent', { name: 'Updated Project' }))
+        .rejects.toThrow('Project with ID non-existent not found');
+    });
+    
+    test('should update working directory in digr.config', async () => {
+      // Set up the cache with a project
+      const project = {
+        id: 'proj-1',
+        name: 'Test Project',
+        workingDirectory: '/path/to/project',
+        sourceFolders: [],
+        createdDate: new Date('2023-01-01'),
+        lastModified: new Date('2023-01-01')
+      };
+      (projectManager as any).projectCache.set('proj-1', project);
+      
+      await projectManager.updateProjectInRegistry('proj-1', { workingDirectory: '/new/path' });
+      
+      // Verify that digrConfigManager.removeProject and addProject were called
+      expect(mockDigrConfigManager.removeProject).toHaveBeenCalledWith('/path/to/project');
+      expect(mockDigrConfigManager.addProject).toHaveBeenCalledWith('/new/path');
+      
+      // Verify that the project was updated in the cache
+      const updatedProject = (projectManager as any).projectCache.get('proj-1');
+      expect(updatedProject.workingDirectory).toBe('/new/path');
     });
   });
 });

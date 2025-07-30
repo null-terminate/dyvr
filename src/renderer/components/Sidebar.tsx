@@ -89,29 +89,19 @@ const Sidebar: React.FC = () => {
 
   // Load projects from the Electron API
   useEffect(() => {
-    console.log('Sidebar: api =', api);
     if (!api) {
-      console.warn('Sidebar: API is not available');
       // Set empty projects array when API is not available
       setProjects([]);
       return () => {};
     }
     
-    console.log('Sidebar: Setting up projects-loaded event listener');
     // Set up event listener for projects loaded
     api.onProjectsLoaded((loadedProjects: Project[]) => {
-      console.log('Sidebar: Received projects from main process:', loadedProjects);
-      console.log('Sidebar: Project count:', loadedProjects.length);
-      for (let i = 0; i < loadedProjects.length; i++) {
-        console.log(`Sidebar: Project ${i + 1}:`, loadedProjects[i]);
-      }
       setProjects(loadedProjects);
     });
     
     // Set up event listener for when a project is created
     api.onProjectCreated((project: Project) => {
-      console.log('Sidebar: Project created:', project);
-      
       // Refresh the project list
       api.loadProjects();
       
@@ -120,12 +110,10 @@ const Sidebar: React.FC = () => {
     });
     
     // Request projects to be loaded
-    console.log('Sidebar: Requesting projects from main process');
     api.loadProjects();
     
     // Clean up event listeners
     return () => {
-      console.log('Sidebar: Removing event listeners');
       if (api.removeAllListeners) {
         api.removeAllListeners('projects-loaded');
         api.removeAllListeners('project-created');

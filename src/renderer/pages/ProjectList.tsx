@@ -19,27 +19,22 @@ const ProjectList: React.FC = () => {
 
   useEffect(() => {
     if (!api) {
-      console.warn('ProjectList: API is not available');
       setIsLoading(false);
       setProjects([]); // Set empty projects array when API is not available
       return () => {};
     }
 
-    console.log('ProjectList: Setting up event listener for projects-loaded');
     // Set up event listener for projects loaded
     api.onProjectsLoaded((loadedProjects: Project[]) => {
-      console.log('ProjectList: Received projects from main process:', loadedProjects);
       setProjects(loadedProjects);
       setIsLoading(false);
     });
     
     // Request projects to be loaded
-    console.log('ProjectList: Requesting projects from main process');
     api.loadProjects();
     
     // Clean up event listener
     return () => {
-      console.log('ProjectList: Removing projects-loaded event listener');
       if (api.removeAllListeners) {
         api.removeAllListeners('projects-loaded');
       }
@@ -48,7 +43,6 @@ const ProjectList: React.FC = () => {
 
   const handleCreateProject = () => {
     // In a real app, this would open a dialog to create a new project
-    console.log('Create new project');
   };
 
   return (

@@ -167,15 +167,12 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (!api) {
-      console.warn('Electron API not available, cannot load projects');
       setIsLoading(false);
       return;
     }
 
     // Set up event listener for when projects are loaded
     const handleProjectsLoaded = (projects: Project[]) => {
-      console.log('Projects loaded:', projects);
-      
       // Convert Project to ProjectSummary
       const projectSummaries: ProjectSummary[] = projects.map(project => ({
         id: project.id,
@@ -189,8 +186,6 @@ const Dashboard: React.FC = () => {
 
     // Set up event listener for when a project is created
     const handleProjectCreated = (project: Project) => {
-      console.log('Project created:', project);
-      
       // Refresh the project list
       api.loadProjects();
     };
@@ -215,7 +210,6 @@ const Dashboard: React.FC = () => {
   
   const handleCreateProjectSubmit = (projectName: string, folderPath: string) => {
     if (api) {
-      console.log(`Creating project: ${projectName} in folder: ${folderPath}`);
       api.createProject(projectName, folderPath);
       setIsCreateDialogOpen(false);
     }
@@ -223,7 +217,6 @@ const Dashboard: React.FC = () => {
 
   const handleOpenProject = () => {
     // In a real app, this would open a dialog to select a project
-    console.log('Open existing project');
   };
 
   return (

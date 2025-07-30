@@ -13,10 +13,7 @@ export const MainProcessProvider: React.FC<MainProcessProviderProps> = ({ childr
 
   useEffect(() => {
     // Check if window.api is available (it should be in Electron environment)
-    console.log('MainProcessContext: Checking if window.api is available...');
-    console.log('MainProcessContext: window.api =', window.api);
     if (window.api) {
-      console.log('MainProcessContext: window.api is available, setting API');
       setApi(window.api);
     } else {
       console.warn('Main Process API not available. Running in browser environment?');
@@ -51,7 +48,6 @@ export const useMainProcessErrors = () => {
 
     const handleError = (err: { message: string; details?: string }) => {
       setError(err);
-      console.error('Main Process API Error:', err);
     };
 
     api.onError(handleError);

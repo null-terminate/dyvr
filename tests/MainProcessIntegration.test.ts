@@ -30,8 +30,8 @@ describe('Main Process Integration', () => {
     projectManager = new ProjectManager(testConfigPath);
     await projectManager.initialize();
     
-    // Reset the DataPersistence cache to avoid project name conflicts between tests
-    await (projectManager as any).dataPersistence.resetCache();
+    // Clear the project cache to avoid project name conflicts between tests
+    (projectManager as any).projectCache.clear();
 
     viewManager = new ViewManager();
     await viewManager.initialize();

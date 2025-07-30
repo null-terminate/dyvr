@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Project, SourceFolder } from '../types';
-import { DataPersistence } from './DataPersistence';
+import { Project, SourceFolder, DigrConfig } from '../types';
+import { DigrConfigManager } from './DigrConfigManager';
 import { DatabaseManager } from './DatabaseManager';
 
 /**
@@ -11,16 +11,17 @@ import { DatabaseManager } from './DatabaseManager';
  * while project-specific data is stored in per-project .digr databases.
  */
 export class ProjectManager {
-  private dataPersistence: DataPersistence;
+  private digrConfigManager: DigrConfigManager;
   private isInitialized: boolean = false;
   private projectDatabases: Map<string, DatabaseManager> = new Map();
+  private projectCache: Map<string, Project> = new Map();
 
   /**
    * Creates a new ProjectManager instance
    * @param configPath Optional custom path for the config file (used for testing)
    */
   constructor(configPath?: string) {
-    this.dataPersistence = new DataPersistence(configPath);
+    this.digrConfigManager = new DigrConfigManager(configPath);
   }
 
   /**
@@ -29,10 +30,194 @@ export class ProjectManager {
    */
   async initialize(): Promise<void> {
     try {
-      await this.dataPersistence.initialize();
+      await this.digrConfigManager.initialize();
       this.isInitialized = true;
     } catch (error) {
       throw new Error(`Failed to initialize ProjectManager: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Load projects from the global registry
+   */
+  async loadProjectRegistry(): Promise<Project[]> {
+    this._validateInitialized();
+
+    try {
+      const config = await this.digrConfigManager.getConfig();
+      
+      const projects: Project[] = [];
+      
+      for (const configProject of config.projects) {
+        const projectPath = configProject.path;
+        
+        // Check if the project path exists
+        if (!fs.existsSync(projectPath)) {
+          console.warn(`ProjectManager: Project path "${projectPath}" does not exist, but will still load it`);
+        } else {
+          
+          // Check if the project path has a .digr subfolder
+          const digrFolderPath = path.join(projectPath, '.digr');
+          if (!fs.existsSync(digrFolderPath)) {
+            console.warn(`ProjectManager: Project path "${projectPath}" does not have a .digr subfolder`);
+          } else {
+          }
+        }
+        
+        // Check if we have this project in cache
+        const cachedProject = Array.from(this.projectCache.values())
+          .find(p => path.resolve(p.workingDirectory) === path.resolve(projectPath));
+        
+        if (cachedProject) {
+          projects.push(cachedProject);
+        } else {
+          // Create a new project object
+          const projectName = path.basename(projectPath);
+          
+          const project: Project = {
+            id: uuidv4(),
+            name: projectName,
+            workingDirectory: projectPath,
+            sourceFolders: [],
+            createdDate: new Date(),
+            lastModified: new Date()
+          };
+          
+          
+          // Add to cache
+          this.projectCache.set(project.id, project);
+          projects.push(project);
+        }
+      }
+      
+      return projects;
+    } catch (error) {
+      console.error('Failed to load projects from digr.config:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Add a project to the global registry
+   */
+  async addProjectToRegistry(project: Project): Promise<void> {
+    this._validateInitialized();
+    this._validateProject(project);
+
+    try {
+      // Add to digr.config
+      await this.digrConfigManager.addProject(project.workingDirectory);
+      
+      // Update cache
+      this.projectCache.set(project.id, {
+        ...project,
+        lastModified: new Date()
+      });
+    } catch (error) {
+      throw new Error(`Failed to add project: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Remove a project from the global registry
+   */
+  async removeProjectFromRegistry(projectId: string): Promise<void> {
+    this._validateInitialized();
+    
+    if (!projectId || typeof projectId !== 'string') {
+      throw new Error('Project ID must be a non-empty string');
+    }
+
+    try {
+      // Get project from cache
+      const project = this.projectCache.get(projectId);
+      if (!project) {
+        // Try to find it in the loaded projects
+        const projects = await this.loadProjectRegistry();
+        const foundProject = projects.find(p => p.id === projectId);
+        if (!foundProject) {
+          throw new Error(`Project with ID ${projectId} not found`);
+        }
+        
+        // Remove from digr.config
+        await this.digrConfigManager.removeProject(foundProject.workingDirectory);
+      } else {
+        // Remove from digr.config
+        await this.digrConfigManager.removeProject(project.workingDirectory);
+        
+        // Remove from cache
+        this.projectCache.delete(projectId);
+      }
+    } catch (error) {
+      throw new Error(`Failed to remove project: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Update a project in the global registry
+   */
+  async updateProjectInRegistry(projectId: string, updates: Partial<Project>): Promise<void> {
+    this._validateInitialized();
+    
+    if (!projectId || typeof projectId !== 'string') {
+      throw new Error('Project ID must be a non-empty string');
+    }
+
+    try {
+      // Get project from cache
+      let project = this.projectCache.get(projectId);
+      
+      if (!project) {
+        // Try to find it in the loaded projects
+        const projects = await this.loadProjectRegistry();
+        project = projects.find(p => p.id === projectId);
+        
+        if (!project) {
+          throw new Error(`Project with ID ${projectId} not found`);
+        }
+      }
+      
+      // If working directory changed, update digr.config
+      if (updates.workingDirectory && updates.workingDirectory !== project.workingDirectory) {
+        await this.digrConfigManager.removeProject(project.workingDirectory);
+        await this.digrConfigManager.addProject(updates.workingDirectory);
+      }
+      
+      // Update cache
+      const updatedProject = {
+        ...project,
+        name: updates.name || project.name,
+        workingDirectory: updates.workingDirectory || project.workingDirectory,
+        sourceFolders: updates.sourceFolders || project.sourceFolders,
+        lastModified: new Date()
+      };
+      
+      this.projectCache.set(projectId, updatedProject);
+    } catch (error) {
+      throw new Error(`Failed to update project: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Check if a project name already exists (case-insensitive)
+   */
+  async projectNameExists(projectName: string, excludeProjectId?: string): Promise<boolean> {
+    this._validateInitialized();
+    
+    if (!projectName || typeof projectName !== 'string') {
+      throw new Error('Project name must be a non-empty string');
+    }
+
+    try {
+      const projects = await this.loadProjectRegistry();
+      const normalizedName = projectName.trim().toLowerCase();
+      
+      return projects.some(project => 
+        project.name.toLowerCase() === normalizedName && 
+        project.id !== excludeProjectId
+      );
+    } catch (error) {
+      throw new Error(`Failed to check project name existence: ${(error as Error).message}`);
     }
   }
 
@@ -45,37 +230,30 @@ export class ProjectManager {
     this._validateWorkingDirectory(workingDirectory);
 
     try {
-      console.log(`Creating project: ${name} at ${workingDirectory}`);
       
       // Check if project name already exists
-      const nameExists = await this.dataPersistence.projectNameExists(name);
+      const nameExists = await this.projectNameExists(name);
       if (nameExists) {
-        console.log(`Project name "${name}" already exists`);
         throw new Error(`Project name "${name}" already exists. Please choose a different name.`);
       }
 
       // Validate parent directory path
       const resolvedParentPath = path.resolve(workingDirectory);
-      console.log(`Resolved parent path: ${resolvedParentPath}`);
-      console.log(`Project name: "${name.trim()}"`);
       
       // Create parent directory if it doesn't exist
       if (!fs.existsSync(resolvedParentPath)) {
         try {
-          console.log(`Creating parent directory: ${resolvedParentPath}`);
           fs.mkdirSync(resolvedParentPath, { recursive: true });
         } catch (fsError) {
           console.error(`Failed to create parent directory: ${(fsError as Error).message}`);
           throw new Error(`Failed to create working directory: ${(fsError as Error).message}`);
         }
       } else {
-        console.log(`Parent directory already exists: ${resolvedParentPath}`);
       }
 
       // Verify parent directory is accessible
       try {
         fs.accessSync(resolvedParentPath, fs.constants.R_OK | fs.constants.W_OK);
-        console.log(`Parent directory is accessible: ${resolvedParentPath}`);
       } catch (accessError) {
         console.error(`Parent directory is not accessible: ${(accessError as Error).message}`);
         throw new Error(`Working directory is not accessible: ${(accessError as Error).message}`);
@@ -83,100 +261,9 @@ export class ProjectManager {
       
       // Create a project folder with the project name in the parent path
       const trimmedName = name.trim();
-      console.log(`Trimmed project name: "${trimmedName}"`);
       
-      // Check if the parent path already ends with the project name
-      const parentBasename = path.basename(resolvedParentPath);
-      console.log(`Parent path basename: "${parentBasename}"`);
-      
-      // Special case for /Users/lnatraj/Desktop/digr
-      if (resolvedParentPath === '/Users/lnatraj/Desktop/digr') {
-        console.log(`Special case: Parent path is /Users/lnatraj/Desktop/digr`);
-        const projectPath = path.join(resolvedParentPath, trimmedName);
-        console.log(`Project path: ${projectPath}`);
-        
-        // Create project directory if it doesn't exist
-        if (!fs.existsSync(projectPath)) {
-          try {
-            console.log(`Creating project directory: ${projectPath}`);
-            fs.mkdirSync(projectPath, { recursive: true });
-            console.log(`Project directory created: ${projectPath}`);
-          } catch (fsError) {
-            console.error(`Failed to create project directory: ${(fsError as Error).message}`);
-            throw new Error(`Failed to create project directory: ${(fsError as Error).message}`);
-          }
-        } else {
-          console.log(`Project directory already exists: ${projectPath}`);
-        }
-        
-        // Verify project directory is accessible
-        try {
-          fs.accessSync(projectPath, fs.constants.R_OK | fs.constants.W_OK);
-          console.log(`Project directory is accessible: ${projectPath}`);
-        } catch (accessError) {
-          console.error(`Project directory is not accessible: ${(accessError as Error).message}`);
-          throw new Error(`Project directory is not accessible: ${(accessError as Error).message}`);
-        }
-        
-        // Create .digr subfolder in the project directory
-        const digrFolderPath = path.join(projectPath, '.digr');
-        if (!fs.existsSync(digrFolderPath)) {
-          try {
-            console.log(`Creating .digr subfolder: ${digrFolderPath}`);
-            fs.mkdirSync(digrFolderPath, { recursive: true });
-            console.log(`.digr subfolder created: ${digrFolderPath}`);
-          } catch (fsError) {
-            console.error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
-            throw new Error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
-          }
-        } else {
-          console.log(`.digr subfolder already exists: ${digrFolderPath}`);
-        }
-        
-        // Create project object
-        const project: Project = {
-          id: uuidv4(),
-          name: trimmedName,
-          workingDirectory: projectPath,
-          sourceFolders: [],
-          createdDate: new Date(),
-          lastModified: new Date()
-        };
-        
-        // Create per-project database and initialize schema
-        console.log(`Ensuring .digr folder exists at ${projectPath}`);
-        await this.ensureProjectDigrFolder(projectPath);
-        console.log(`Creating database manager for ${projectPath}`);
-        const dbManager = new DatabaseManager(projectPath);
-        console.log(`Initializing project database for ${project.id}`);
-        await dbManager.initializeProjectDatabase(project.id, project.name, projectPath);
-        console.log(`Creating project schema for ${project.id}`);
-        await dbManager.createProjectSchema(project.id, project.name, projectPath);
-        console.log(`Closing project database for ${project.id}`);
-        await dbManager.closeProjectDatabase();
-        
-        // Add to global registry
-        console.log(`Adding project ${project.id} to registry`);
-        await this.dataPersistence.addProjectToRegistry(project);
-        
-        console.log(`Project ${project.id} created successfully`);
-        return project;
-      }
-      
-      // If the parent path already ends with the project name, create a new path with a subfolder
-      let projectPath;
-      if (parentBasename === trimmedName) {
-        // Create a subfolder with the project name
-        projectPath = path.join(resolvedParentPath, trimmedName + "-project");
-        console.log(`Parent path already ends with project name, creating subfolder: ${projectPath}`);
-      } else {
-        // Normal case - create a project folder with the project name in the parent path
-        projectPath = path.join(resolvedParentPath, trimmedName);
-        console.log(`Project path: ${projectPath}`);
-      }
-      
-      console.log(`Is project path different from parent path: ${projectPath !== resolvedParentPath}`);
-      console.log(`Project path basename: ${path.basename(projectPath)}`);
+      // Always create a project folder with the project name in the parent path
+      const projectPath = path.join(resolvedParentPath, trimmedName);
       
       // Ensure the project path is different from the parent path
       if (projectPath === resolvedParentPath) {
@@ -187,21 +274,17 @@ export class ProjectManager {
       // Create project directory if it doesn't exist
       if (!fs.existsSync(projectPath)) {
         try {
-          console.log(`Creating project directory: ${projectPath}`);
           fs.mkdirSync(projectPath, { recursive: true });
-          console.log(`Project directory created: ${projectPath}`);
         } catch (fsError) {
           console.error(`Failed to create project directory: ${(fsError as Error).message}`);
           throw new Error(`Failed to create project directory: ${(fsError as Error).message}`);
         }
       } else {
-        console.log(`Project directory already exists: ${projectPath}`);
       }
       
       // Verify project directory is accessible
       try {
         fs.accessSync(projectPath, fs.constants.R_OK | fs.constants.W_OK);
-        console.log(`Project directory is accessible: ${projectPath}`);
       } catch (accessError) {
         console.error(`Project directory is not accessible: ${(accessError as Error).message}`);
         throw new Error(`Project directory is not accessible: ${(accessError as Error).message}`);
@@ -211,15 +294,12 @@ export class ProjectManager {
       const digrFolderPath = path.join(projectPath, '.digr');
       if (!fs.existsSync(digrFolderPath)) {
         try {
-          console.log(`Creating .digr subfolder: ${digrFolderPath}`);
           fs.mkdirSync(digrFolderPath, { recursive: true });
-          console.log(`.digr subfolder created: ${digrFolderPath}`);
         } catch (fsError) {
           console.error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
           throw new Error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
         }
       } else {
-        console.log(`.digr subfolder already exists: ${digrFolderPath}`);
       }
 
       // Create project object
@@ -233,22 +313,15 @@ export class ProjectManager {
       };
 
       // Create per-project database and initialize schema
-      console.log(`Ensuring .digr folder exists at ${projectPath}`);
       await this.ensureProjectDigrFolder(projectPath);
-      console.log(`Creating database manager for ${projectPath}`);
       const dbManager = new DatabaseManager(projectPath);
-      console.log(`Initializing project database for ${project.id}`);
       await dbManager.initializeProjectDatabase(project.id, project.name, projectPath);
-      console.log(`Creating project schema for ${project.id}`);
       await dbManager.createProjectSchema(project.id, project.name, projectPath);
-      console.log(`Closing project database for ${project.id}`);
       await dbManager.closeProjectDatabase();
 
       // Add to global registry
-      console.log(`Adding project ${project.id} to registry`);
-      await this.dataPersistence.addProjectToRegistry(project);
+      await this.addProjectToRegistry(project);
       
-      console.log(`Project ${project.id} created successfully`);
       return project;
     } catch (error) {
       if ((error as Error).message.includes('already exists') || 
@@ -271,7 +344,7 @@ export class ProjectManager {
     }
 
     try {
-      const projects = await this.dataPersistence.loadProjectRegistry();
+      const projects = await this.loadProjectRegistry();
       return projects.find(p => p.id === projectId) || null;
     } catch (error) {
       throw new Error(`Failed to get project: ${(error as Error).message}`);
@@ -285,7 +358,7 @@ export class ProjectManager {
     this._validateInitialized();
 
     try {
-      return await this.dataPersistence.loadProjectRegistry();
+      return await this.loadProjectRegistry();
     } catch (error) {
       throw new Error(`Failed to get projects: ${(error as Error).message}`);
     }
@@ -316,7 +389,7 @@ export class ProjectManager {
       }
 
       // Remove from global registry
-      await this.dataPersistence.removeProjectFromRegistry(projectId);
+      await this.removeProjectFromRegistry(projectId);
       
       // Note: We preserve the .digr folder and its contents as per requirements
     } catch (error) {
@@ -387,7 +460,7 @@ export class ProjectManager {
         lastModified: new Date()
       };
 
-      await this.dataPersistence.updateProjectInRegistry(projectId, updatedProject);
+      await this.updateProjectInRegistry(projectId, updatedProject);
 
       // Also add to per-project database
       const dbManager = await this.openProjectDatabase(projectId);
@@ -452,7 +525,7 @@ export class ProjectManager {
         lastModified: new Date()
       };
 
-      await this.dataPersistence.updateProjectInRegistry(projectId, updatedProject);
+      await this.updateProjectInRegistry(projectId, updatedProject);
 
       // Also remove from per-project database
       const dbManager = await this.openProjectDatabase(projectId);
@@ -582,8 +655,8 @@ export class ProjectManager {
     this.projectDatabases.clear();
     this.isInitialized = false;
     
-    // Note: We no longer reset the DataPersistence cache when closing
-    // This was causing projects to be deleted from ~/.digr/config
+    // Clear the project cache
+    this.projectCache.clear();
   }
 
   /**
@@ -637,6 +710,24 @@ export class ProjectManager {
       path.resolve(trimmedPath);
     } catch (pathError) {
       throw new Error(`Invalid working directory path: ${(pathError as Error).message}`);
+    }
+  }
+
+  /**
+   * Validate project object structure
+   */
+  private _validateProject(project: Project): void {
+    if (!project || typeof project !== 'object') {
+      throw new Error('Project must be an object');
+    }
+    if (!project.id || typeof project.id !== 'string') {
+      throw new Error('Project ID must be a non-empty string');
+    }
+    if (!project.name || typeof project.name !== 'string') {
+      throw new Error('Project name must be a non-empty string');
+    }
+    if (!project.workingDirectory || typeof project.workingDirectory !== 'string') {
+      throw new Error('Project working directory must be a non-empty string');
     }
   }
 }

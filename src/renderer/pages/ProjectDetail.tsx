@@ -25,48 +25,39 @@ const ProjectDetail: React.FC = () => {
 
   useEffect(() => {
     if (!api) {
-      console.warn('ProjectDetail: API is not available');
       setIsLoading(false);
       setProject(null); // Ensure project is null when API is not available
       return () => {};
     }
 
     if (!id) {
-      console.warn('ProjectDetail: No project ID provided');
       setIsLoading(false);
       setProject(null); // Ensure project is null when no ID is provided
       return () => {};
     }
 
-    console.log('ProjectDetail: Setting up event listener for projects-loaded');
     // Set up event listener for projects loaded
     api.onProjectsLoaded((loadedProjects: any[]) => {
-      console.log('ProjectDetail: Received projects from main process:', loadedProjects);
       // Find the specific project by ID
       const foundProject = loadedProjects.find(p => p.id === id);
       if (foundProject) {
-        console.log('ProjectDetail: Found project:', foundProject);
         setProject(foundProject);
       } else {
-        console.warn(`ProjectDetail: Project with ID ${id} not found`);
         setProject(null); // Ensure project is null when not found
       }
       setIsLoading(false);
     });
     
     api.onError((error) => {
-      console.error('ProjectDetail: Error loading project:', error);
       setIsLoading(false);
       setProject(null); // Ensure project is null on error
     });
     
     // Request projects to be loaded
-    console.log('ProjectDetail: Requesting projects from main process');
     api.loadProjects();
     
     // Clean up event listeners
     return () => {
-      console.log('ProjectDetail: Removing event listeners');
       if (api.removeAllListeners) {
         api.removeAllListeners('projects-loaded');
         api.removeAllListeners('error');
@@ -78,9 +69,6 @@ const ProjectDetail: React.FC = () => {
     if (api && project) {
       // In a real app, this would open a dialog to select a directory
       // and then call the API to add the source folder
-      console.log('Add source directory to project', project.id);
-    } else {
-      console.log('Add source directory');
     }
   };
 

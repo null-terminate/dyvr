@@ -1,20 +1,15 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-console.log('Preload script is being loaded!');
-
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld(
   'api', {
     // Project operations
     loadProjects: () => {
-      console.log('Preload: Sending load-projects event to main process');
       ipcRenderer.send('load-projects');
     },
     onProjectsLoaded: (callback: (projects: any[]) => void) => {
-      console.log('Preload: Setting up projects-loaded event listener');
       ipcRenderer.on('projects-loaded', (_event, projects) => {
-        console.log('Preload: Received projects-loaded event from main process:', projects);
         callback(projects);
       });
     },

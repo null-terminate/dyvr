@@ -32,7 +32,6 @@ const Settings: React.FC = () => {
 
   const handleBrowseLocation = () => {
     // In a real app, this would open a dialog to select a directory
-    console.log('Browse for default project location');
   };
 
   const handleSave = () => {
