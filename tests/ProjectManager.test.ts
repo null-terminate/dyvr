@@ -342,7 +342,13 @@ describe('ProjectManager', () => {
       jest.spyOn(projectManager, 'getProject').mockResolvedValue(mockProject);
       
       // Mock updateProjectInRegistry
-      jest.spyOn(projectManager, 'updateProjectInRegistry').mockResolvedValue(undefined);
+      jest.spyOn(projectManager, 'updateProjectInRegistry').mockResolvedValue({
+        ...mockProject,
+        sourceFolders: [expect.objectContaining({
+          id: expect.any(String),
+          path: '/resolved/source/path'
+        })]
+      });
       
       // Mock openProjectDatabase
       jest.spyOn(projectManager, 'openProjectDatabase').mockResolvedValue({
@@ -463,7 +469,10 @@ describe('ProjectManager', () => {
       jest.spyOn(projectManager, 'getProject').mockResolvedValue(mockProject);
       
       // Mock updateProjectInRegistry
-      jest.spyOn(projectManager, 'updateProjectInRegistry').mockResolvedValue(undefined);
+      jest.spyOn(projectManager, 'updateProjectInRegistry').mockResolvedValue({
+        ...mockProject,
+        sourceFolders: []
+      });
       
       // Mock openProjectDatabase
       jest.spyOn(projectManager, 'openProjectDatabase').mockResolvedValue({

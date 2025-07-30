@@ -166,7 +166,7 @@ export class ProjectManager {
   /**
    * Update a project in the global registry
    */
-  async updateProjectInRegistry(projectId: string, updates: Partial<Project>): Promise<void> {
+  async updateProjectInRegistry(projectId: string, updates: Partial<Project>): Promise<Project> {
     this._validateInitialized();
     
     if (!projectId || typeof projectId !== 'string') {
@@ -202,7 +202,11 @@ export class ProjectManager {
         lastModified: new Date()
       };
       
+      // Update the cache with the updated project
       this.projectCache.set(projectId, updatedProject);
+      
+      // Return the updated project to ensure it's available immediately
+      return updatedProject;
     } catch (error) {
       throw new Error(`Failed to update project: ${(error as Error).message}`);
     }
@@ -328,6 +332,9 @@ export class ProjectManager {
       await dbManager.initializeProjectDatabase(project.id, project.name, projectPath);
       await dbManager.createProjectSchema(project.id, project.name, projectPath);
       await dbManager.closeProjectDatabase();
+
+      // Save to project.json file
+      await this.saveProjectJson(project);
 
       // Add to global registry
       await this.addProjectToRegistry(project);
@@ -520,10 +527,20 @@ export class ProjectManager {
         lastModified: new Date()
       };
 
-      await this.updateProjectInRegistry(projectId, updatedProject);
+      const result = await this.updateProjectInRegistry(projectId, updatedProject);
 
-      // Also add to per-project database
+      // Ensure project database exists
+      await this.ensureProjectDatabase(projectId, project);
+      
+      // Add to per-project database
       const dbManager = await this.openProjectDatabase(projectId);
+      
+      // Ensure the source_folders table exists
+      await dbManager.executeNonQuery(
+        'CREATE TABLE IF NOT EXISTS source_folders (id TEXT PRIMARY KEY, path TEXT NOT NULL, added_date TEXT NOT NULL)'
+      );
+      
+      // Insert the source folder
       await dbManager.executeNonQuery(
         'INSERT INTO source_folders (id, path, added_date) VALUES (?, ?, ?)',
         [sourceFolder.id, sourceFolder.path, sourceFolder.addedDate.toISOString()]
@@ -588,9 +605,12 @@ export class ProjectManager {
         lastModified: new Date()
       };
 
-      await this.updateProjectInRegistry(projectId, updatedProject);
+      const result = await this.updateProjectInRegistry(projectId, updatedProject);
 
-      // Also remove from per-project database
+      // Ensure project database exists
+      await this.ensureProjectDatabase(projectId, project);
+      
+      // Remove from per-project database
       const dbManager = await this.openProjectDatabase(projectId);
       await dbManager.executeNonQuery(
         'DELETE FROM source_folders WHERE id = ?',
@@ -703,6 +723,31 @@ export class ProjectManager {
       }
     } catch (error) {
       throw new Error(`Failed to ensure .digr folder: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Ensure the project database exists and is initialized
+   */
+  async ensureProjectDatabase(projectId: string, project: Project): Promise<void> {
+    try {
+      // Check if the database file exists
+      const dbPath = path.join(project.workingDirectory, '.digr', `${projectId}.db`);
+      const dbExists = fs.existsSync(dbPath);
+      
+      if (!dbExists) {
+        console.log(`Project database does not exist, creating it: ${dbPath}`);
+        
+        // Create the database and initialize schema
+        await this.ensureProjectDigrFolder(project.workingDirectory);
+        const dbManager = new DatabaseManager(project.workingDirectory);
+        await dbManager.initializeProjectDatabase(project.id, project.name, project.workingDirectory);
+        await dbManager.createProjectSchema(project.id, project.name, project.workingDirectory);
+        await dbManager.closeProjectDatabase();
+      }
+    } catch (error) {
+      console.error(`Failed to ensure project database: ${(error as Error).message}`);
+      throw new Error(`Failed to ensure project database: ${(error as Error).message}`);
     }
   }
 
