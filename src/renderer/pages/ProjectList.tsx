@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useMainProcess } from '../context/MainProcessContext';
 import { Project } from '../types/mainProcessTypes';
 import CreateProjectDialog from '../components/CreateProjectDialog';
+import RemoveProjectDialog from '../components/RemoveProjectDialog';
 
 const ProjectList: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState<boolean>(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState<boolean>(false);
+  const [projectToRemove, setProjectToRemove] = useState<{id: string, name: string} | null>(null);
   const navigate = useNavigate();
   const api = useMainProcess();
 
@@ -30,8 +33,15 @@ const ProjectList: React.FC = () => {
       api.loadProjects();
     };
     
+    // Set up event listener for when a project is deleted
+    const handleProjectDeleted = (projectId: string) => {
+      // Refresh the project list
+      api.loadProjects();
+    };
+    
     // Register the event listeners
     api.onProjectCreated(handleProjectCreated);
+    api.onProjectDeleted(handleProjectDeleted);
     
     // Request projects to be loaded
     api.loadProjects();
@@ -41,6 +51,7 @@ const ProjectList: React.FC = () => {
       if (api.removeAllListeners) {
         api.removeAllListeners('projects-loaded');
         api.removeAllListeners('project-created');
+        api.removeAllListeners('project-deleted');
       }
     };
   }, [api]);
@@ -56,6 +67,21 @@ const ProjectList: React.FC = () => {
     }
   };
 
+  const handleRemoveProject = (project: {id: string, name: string}) => {
+    if (!api) return;
+    
+    setProjectToRemove(project);
+    setIsRemoveDialogOpen(true);
+  };
+  
+  const confirmRemoveProject = () => {
+    if (!api || !projectToRemove) return;
+    
+    api.deleteProject(projectToRemove.id);
+    setIsRemoveDialogOpen(false);
+    setProjectToRemove(null);
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -69,6 +95,16 @@ const ProjectList: React.FC = () => {
         onSubmit={handleCreateProjectSubmit}
       />
       
+      <RemoveProjectDialog
+        isOpen={isRemoveDialogOpen}
+        projectName={projectToRemove?.name || ''}
+        onClose={() => {
+          setIsRemoveDialogOpen(false);
+          setProjectToRemove(null);
+        }}
+        onConfirm={confirmRemoveProject}
+      />
+      
       {isLoading ? (
         <p>Loading projects...</p>
       ) : projects.length > 0 ? (
@@ -80,6 +116,7 @@ const ProjectList: React.FC = () => {
                 <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #ddd' }}>Path</th>
                 <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #ddd' }}>Last Opened</th>
                 <th style={{ textAlign: 'left', padding: '10px', borderBottom: '1px solid #ddd' }}>Created</th>
+                <th style={{ textAlign: 'center', padding: '10px', borderBottom: '1px solid #ddd', width: '50px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -90,17 +127,49 @@ const ProjectList: React.FC = () => {
                     cursor: 'pointer',
                     backgroundColor: 'white'
                   }}
-                  onClick={() => navigate(`/projects/${project.id}`)}
                   onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
                   onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'white'}
                 >
-                  <td style={{ padding: '10px', borderBottom: '1px solid #ddd' }}>{project.name}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #ddd' }}>{project.path || project.workingDirectory}</td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #ddd' }}>
+                  <td 
+                    style={{ padding: '10px', borderBottom: '1px solid #ddd' }}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                  >{project.name}</td>
+                  <td 
+                    style={{ padding: '10px', borderBottom: '1px solid #ddd' }}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                  >{project.path || project.workingDirectory}</td>
+                  <td 
+                    style={{ padding: '10px', borderBottom: '1px solid #ddd' }}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                  >
                     {project.lastOpened ? project.lastOpened.toLocaleDateString() : 'N/A'}
                   </td>
-                  <td style={{ padding: '10px', borderBottom: '1px solid #ddd' }}>
+                  <td 
+                    style={{ padding: '10px', borderBottom: '1px solid #ddd' }}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                  >
                     {project.created ? project.created.toLocaleDateString() : 'N/A'}
+                  </td>
+                  <td style={{ padding: '10px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveProject({id: project.id, name: project.name});
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '5px',
+                        color: '#888',
+                        transition: 'color 0.2s ease'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.color = '#d9534f'}
+                      onMouseOut={(e) => e.currentTarget.style.color = '#888'}
+                      title="Remove project"
+                    >
+                      🗑️
+                    </button>
                   </td>
                 </tr>
               ))}
