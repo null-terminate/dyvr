@@ -656,6 +656,7 @@ export class ProjectManager {
 
   /**
    * Open a project database connection
+   * Creates the database if it doesn't exist
    */
   async openProjectDatabase(projectId: string): Promise<DatabaseManager> {
     this._validateInitialized();
@@ -675,9 +676,21 @@ export class ProjectManager {
       throw new Error(`Project with ID "${projectId}" not found`);
     }
 
+    // Ensure the project database exists before opening it
+    await this.ensureProjectDatabase(projectId, project);
+    
     // Create and open database connection
     const dbManager = new DatabaseManager(project.workingDirectory);
-    await dbManager.openProjectDatabase(project.workingDirectory);
+    
+    try {
+      // Try to open the database
+      await dbManager.openProjectDatabase(project.workingDirectory);
+    } catch (error) {
+      // If opening fails, initialize the database
+      console.log(`Database doesn't exist or couldn't be opened, initializing it: ${(error as Error).message}`);
+      await dbManager.initializeProjectDatabase(project.id, project.name, project.workingDirectory);
+      await dbManager.createProjectSchema(project.id, project.name, project.workingDirectory);
+    }
     
     // Cache the connection
     this.projectDatabases.set(projectId, dbManager);
@@ -731,8 +744,9 @@ export class ProjectManager {
    */
   async ensureProjectDatabase(projectId: string, project: Project): Promise<void> {
     try {
-      // Check if the database file exists
-      const dbPath = path.join(project.workingDirectory, '.digr', `${projectId}.db`);
+      // Create a temporary DatabaseManager to get the correct database path
+      const tempDbManager = new DatabaseManager(project.workingDirectory);
+      const dbPath = tempDbManager.getDatabasePath(project.workingDirectory);
       const dbExists = fs.existsSync(dbPath);
       
       if (!dbExists) {

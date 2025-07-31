@@ -377,7 +377,10 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
       message: 'Starting JSON file scan...' 
     });
 
-    // Create data table if it doesn't exist
+    // Drop the existing data table if it exists and create a new one
+    await dbManager.executeNonQuery(`DROP TABLE IF EXISTS data`);
+    
+    // Create a new data table
     await dbManager.executeNonQuery(`
       CREATE TABLE IF NOT EXISTS data (
         id INTEGER PRIMARY KEY AUTOINCREMENT
@@ -520,43 +523,131 @@ async function findJsonFiles(dir: string): Promise<string[]> {
 
 /**
  * Process a JSON file line by line and extract objects
+ * Uses optimized streaming to handle large files (up to 1GB) efficiently
  */
 async function processJsonFile(filePath: string): Promise<any[]> {
   const extractedObjects: any[] = [];
   
   try {
-    // Read the file content
-    const content = fs.readFileSync(filePath, 'utf8');
+    // Create a read stream for the file
+    const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
     
-    // Try to parse the file as JSON
-    try {
-      const json = JSON.parse(content);
+    // Create interface for reading line by line
+    const readline = require('readline');
+    const rl = readline.createInterface({
+      input: fileStream,
+      crlfDelay: Infinity
+    });
+    
+    // Track parsing state
+    let insideRootArray = false;
+    let insideObject = false;
+    let objectDepth = 0;
+    let currentObject = '';
+    let insideString = false;
+    let escapeNext = false;
+    
+    // Process the file line by line
+    for await (const line of rl) {
+      // Skip empty lines
+      if (!line.trim()) continue;
       
-      // Check if it's an array of objects
-      if (Array.isArray(json)) {
-        // Extract first-level properties from each object
-        for (const item of json) {
-          if (typeof item === 'object' && item !== null) {
-            const extractedObj: any = {};
+      // Process each character in the line
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        // Always add the current character to the object string if we're inside an object
+        if (insideObject) {
+          currentObject += char;
+        }
+        
+        // Handle escape sequences
+        if (escapeNext) {
+          escapeNext = false;
+          continue;
+        }
+        
+        // Check for escape character
+        if (char === '\\') {
+          escapeNext = true;
+          continue;
+        }
+        
+        // Handle string boundaries
+        if (char === '"' && insideObject) {
+          insideString = !insideString;
+        }
+        
+        // Skip processing special characters if inside a string
+        if (insideString) {
+          continue;
+        }
+        
+        // Check for root array start
+        if (!insideRootArray && char === '[') {
+          insideRootArray = true;
+          continue;
+        }
+        
+        // Check for root array end
+        if (insideRootArray && !insideObject && char === ']') {
+          insideRootArray = false;
+          continue;
+        }
+        
+        // Skip whitespace between objects in the root array
+        if (insideRootArray && !insideObject && /\s|,/.test(char)) {
+          continue;
+        }
+        
+        // Start of a new object in the root array
+        if (insideRootArray && !insideObject && char === '{') {
+          insideObject = true;
+          objectDepth = 1;
+          currentObject = '{';
+          continue;
+        }
+        
+        // Inside an object, track object depth (but only if not inside a string)
+        if (insideObject) {
+          if (char === '{') {
+            objectDepth++;
+          } else if (char === '}') {
+            objectDepth--;
             
-            // Extract only first-level properties
-            for (const [key, value] of Object.entries(item)) {
-              // Store only primitive values or stringified complex values
-              if (value === null) {
-                extractedObj[key] = null;
-              } else if (typeof value !== 'object') {
-                extractedObj[key] = value;
-              } else {
-                extractedObj[key] = JSON.stringify(value);
+            // If we've closed the root object, process it
+            if (objectDepth === 0) {
+              insideObject = false;
+              insideString = false; // Reset string state
+              
+              try {
+                const obj = JSON.parse(currentObject);
+                if (typeof obj === 'object' && obj !== null) {
+                  const extractedObj: any = {};
+                  
+                  // Extract only first-level properties
+                  for (const [key, value] of Object.entries(obj)) {
+                    // Store only primitive values or stringified complex values
+                    if (value === null) {
+                      extractedObj[key] = null;
+                    } else if (typeof value !== 'object') {
+                      extractedObj[key] = value;
+                    } else {
+                      extractedObj[key] = JSON.stringify(value);
+                    }
+                  }
+                  
+                  extractedObjects.push(extractedObj);
+                }
+              } catch (parseError) {
+                console.log(`Error parsing object: ${currentObject}`);
               }
+              
+              currentObject = '';
             }
-            
-            extractedObjects.push(extractedObj);
           }
         }
       }
-    } catch (jsonError) {
-      console.warn(`Error parsing JSON file ${filePath}:`, jsonError);
     }
   } catch (fileError) {
     console.warn(`Error reading file ${filePath}:`, fileError);
