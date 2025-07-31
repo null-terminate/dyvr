@@ -234,7 +234,11 @@ ipcMain.on('create-project', async (event, data: { name: string; workingDirector
     await digrConfigManager.addProject(project.workingDirectory);
     console.log(`Main process: Project added to digr.config successfully`);
     
-    sendResponse('project-created', project);
+    // Make sure the project is properly added to the registry before sending the event
+    const updatedProject = await projectManager.getProject(project.id);
+    console.log(`Main process: Sending project-created event with project:`, JSON.stringify(updatedProject));
+    
+    sendResponse('project-created', updatedProject || project);
   } catch (error) {
     console.error('Failed to create project:', error);
     sendError('Failed to create project', (error as Error).message);
