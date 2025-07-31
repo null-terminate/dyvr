@@ -125,6 +125,8 @@ export interface MainProcessAPI {
   onDataScanned: (callback: (results: ScanResults) => void) => void;
   executeQuery: (projectId: string, query: QueryModel) => void;
   onQueryResults: (callback: (results: QueryResult) => void) => void;
+  executeSqlQuery: (projectId: string, sql: string, params?: any[], page?: number, pageSize?: number) => void;
+  onSqlQueryResults: (callback: (results: any) => void) => void;
   getViewSchema: (projectId: string, viewId: string) => void;
   onViewSchemaLoaded: (callback: (data: { projectId: string, viewId: string, schema: ColumnDefinition[] }) => void) => void;
   checkViewData: (projectId: string, viewId: string) => void;

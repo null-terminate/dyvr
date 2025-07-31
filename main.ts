@@ -1009,6 +1009,47 @@ ipcMain.on('execute-query', async (event, data: { projectId: string; query: Quer
 });
 
 /**
+ * Execute a raw SQL query on the project database
+ */
+ipcMain.on('execute-sql-query', async (event, data: { projectId: string; sql: string; params?: any[]; page?: number; pageSize?: number }) => {
+  try {
+    if (!data || !data.projectId || !data.sql) {
+      throw new Error('Project ID and SQL query are required');
+    }
+
+    // Get project
+    const project = await projectManager.getProject(data.projectId);
+    if (!project) {
+      throw new Error('Project not found');
+    }
+
+    // Get database manager for the project
+    const dbManager = await projectManager.openProjectDatabase(data.projectId);
+
+    // Execute the SQL query
+    const result = await dbManager.executeSqlQuery(
+      data.sql, 
+      data.params || [], 
+      data.page || 1, 
+      data.pageSize || 10
+    );
+
+    // Convert the result to the expected format
+    const queryResult: QueryResult = {
+      data: result.rows,
+      totalCount: result.totalRows,
+      columns: result.columns
+    };
+
+    sendResponse('sql-query-results', queryResult);
+
+  } catch (error) {
+    console.error('Failed to execute SQL query:', error);
+    sendError('Failed to execute SQL query', (error as Error).message);
+  }
+});
+
+/**
  * Get view data schema
  */
 ipcMain.on('get-view-schema', async (event, data: { projectId: string; viewId: string }) => {

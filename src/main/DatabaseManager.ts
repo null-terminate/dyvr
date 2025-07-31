@@ -563,6 +563,109 @@ export class DatabaseManager {
   }
 
   /**
+   * Execute a SQL query and return paginated results
+   * @param sql The SQL query to execute
+   * @param params Optional parameters for the query
+   * @param page Page number (1-based)
+   * @param pageSize Number of records per page
+   * @returns Object containing columns, rows, and total count
+   */
+  async executeSqlQuery(
+    sql: string, 
+    params: any[] = [], 
+    page: number = 1, 
+    pageSize: number = 10
+  ): Promise<{ columns: string[], rows: any[][], totalRows: number }> {
+    if (!this.isInitialized || !this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    try {
+      // Validate and sanitize inputs
+      if (page < 1) page = 1;
+      if (pageSize < 1) pageSize = 10;
+      if (pageSize > 100) pageSize = 100; // Limit max page size
+
+      // Prepare the SQL query
+      let sanitizedSql = sql.trim();
+      
+      // Check if the query is a SELECT statement
+      if (!sanitizedSql.toLowerCase().startsWith('select')) {
+        throw new Error('Only SELECT queries are allowed');
+      }
+
+      // Get total count for pagination
+      // Extract the FROM clause and any WHERE conditions
+      const lowerSql = sanitizedSql.toLowerCase();
+      let fromIndex = lowerSql.indexOf(' from ');
+      if (fromIndex === -1) {
+        throw new Error('Invalid SQL query: Missing FROM clause');
+      }
+
+      const fromClause = sanitizedSql.substring(fromIndex);
+      
+      // Find where the ORDER BY, LIMIT, etc. clauses start
+      let orderByIndex = lowerSql.indexOf(' order by ');
+      let limitIndex = lowerSql.indexOf(' limit ');
+      let groupByIndex = lowerSql.indexOf(' group by ');
+      
+      // Find the earliest clause after FROM
+      let endIndex = sanitizedSql.length;
+      if (orderByIndex > fromIndex && (orderByIndex < endIndex)) endIndex = orderByIndex;
+      if (limitIndex > fromIndex && (limitIndex < endIndex)) endIndex = limitIndex;
+      if (groupByIndex > fromIndex && (groupByIndex < endIndex)) endIndex = groupByIndex;
+      
+      const whereClause = sanitizedSql.substring(fromIndex, endIndex);
+      
+      // Create count query
+      const countSql = `SELECT COUNT(*) as total ${whereClause}`;
+      
+      // Execute count query
+      const countResult = await this.executeQuery(countSql, params);
+      const totalRows = countResult[0]?.total || 0;
+      
+      // Add pagination to the original query
+      const offset = (page - 1) * pageSize;
+      const paginatedSql = `${sanitizedSql} LIMIT ${pageSize} OFFSET ${offset}`;
+      
+      // Execute the paginated query
+      return new Promise((resolve, reject) => {
+        this.db!.all(paginatedSql, params, (err, rows) => {
+          if (err) {
+            reject(new Error(`Query execution failed: ${err.message}`));
+            return;
+          }
+          
+          // If no rows, return empty result with column names
+          if (!rows || rows.length === 0) {
+            resolve({
+              columns: [],
+              rows: [],
+              totalRows
+            });
+            return;
+          }
+          
+          // Extract column names from the first row
+          const firstRow = rows[0] as Record<string, any>;
+          const columns = Object.keys(firstRow);
+          
+          // Convert rows to arrays for more efficient transfer
+          const rowsArray = rows.map(row => columns.map(col => (row as Record<string, any>)[col]));
+          
+          resolve({
+            columns,
+            rows: rowsArray,
+            totalRows
+          });
+        });
+      });
+    } catch (error) {
+      throw new Error(`SQL query execution failed: ${(error as Error).message}`);
+    }
+  }
+
+  /**
    * Close the database connection
    */
   async closeDatabase(): Promise<void> {

@@ -98,6 +98,12 @@ contextBridge.exposeInMainWorld(
     onQueryResults: (callback: (results: any) => void) => {
       ipcRenderer.on('query-results', (_event, results) => callback(results));
     },
+    executeSqlQuery: (projectId: string, sql: string, params?: any[], page?: number, pageSize?: number) => {
+      ipcRenderer.send('execute-sql-query', { projectId, sql, params, page, pageSize });
+    },
+    onSqlQueryResults: (callback: (results: any) => void) => {
+      ipcRenderer.on('sql-query-results', (_event, results) => callback(results));
+    },
     getViewSchema: (projectId: string, viewId: string) => {
       ipcRenderer.send('get-view-schema', { projectId, viewId });
     },

@@ -16,7 +16,7 @@ const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'details' | 'files' | 'settings'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'files' | 'query'>('details');
   const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState<boolean>(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
@@ -318,11 +318,11 @@ const ProjectDetail: React.FC = () => {
             )}
           </div>
         );
-      case 'settings':
+      case 'query':
         return (
           <div>
-            <h3>Project Settings</h3>
-            <p>Project settings would go here.</p>
+            {/* Import and render the Query component with project ID */}
+            {React.createElement(require('../pages/Query').default, { projectId: project.id })}
           </div>
         );
       default:
@@ -344,7 +344,7 @@ const ProjectDetail: React.FC = () => {
       
       <div style={{ marginBottom: '20px', borderBottom: '1px solid #ddd' }}>
         <div style={{ display: 'flex' }}>
-          {(['details', 'files', 'settings'] as const).map(tab => (
+          {(['details', 'files', 'query'] as const).map(tab => (
             <div
               key={tab}
               style={{
