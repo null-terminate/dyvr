@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useMainProcess } from '../context/MainProcessContext';
 import AddSourceDirectoryModal from '../components/AddSourceDirectoryModal';
+import RemoveProjectDialog from '../components/RemoveProjectDialog';
 import { Project, ScanStatus } from '../types/mainProcessTypes';
 
 // Import ScanProgress interface
@@ -14,10 +15,12 @@ interface ScanProgress {
 
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'query'>('details');
   const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState<boolean>(false);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState<boolean>(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [scanComplete, setScanComplete] = useState<{
@@ -168,6 +171,25 @@ const ProjectDetail: React.FC = () => {
     if (api) {
       api.openFolder(folderPath);
     }
+  };
+
+  const handleDeleteProject = () => {
+    if (!api || !project) return;
+    setIsRemoveDialogOpen(true);
+  };
+  
+  const confirmDeleteProject = () => {
+    if (!api || !project) return;
+    
+    api.deleteProject(project.id);
+    
+    // Force a refresh of the projects list to update the sidebar
+    setTimeout(() => {
+      api.loadProjects();
+    }, 100);
+    
+    setIsRemoveDialogOpen(false);
+    navigate('/projects');
   };
 
   const renderTabContent = () => {
@@ -370,6 +392,31 @@ const ProjectDetail: React.FC = () => {
         onClose={() => setIsAddSourceModalOpen(false)}
         onSubmit={handleSourceDirectorySubmit}
       />
+      
+      <RemoveProjectDialog
+        isOpen={isRemoveDialogOpen}
+        projectName={project?.name || ''}
+        onClose={() => setIsRemoveDialogOpen(false)}
+        onConfirm={confirmDeleteProject}
+      />
+      
+      <div style={{ marginTop: '40px', borderTop: '1px solid #ddd', paddingTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+        <button 
+          onClick={handleDeleteProject}
+          style={{
+            padding: '4px 8px',
+            fontSize: '12px',
+            backgroundColor: '#d9534f',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+          title="Delete project"
+        >
+          Delete Project
+        </button>
+      </div>
     </div>
   );
 };

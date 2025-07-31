@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useMainProcess } from '../context/MainProcessContext';
 
 interface Project {
@@ -23,6 +23,7 @@ const Sidebar: React.FC = () => {
   const initialSidebarWidthRef = useRef<number>(DEFAULT_SIDEBAR_WIDTH);
   const api = useMainProcess();
   const location = useLocation();
+  const navigate = useNavigate();
   
   // Handle mouse events for resizing
   useEffect(() => {
@@ -95,10 +96,14 @@ const Sidebar: React.FC = () => {
       return () => {};
     }
     
+    console.log('Setting up event listeners in Sidebar');
+    
     // Set up event listener for projects loaded
-    api.onProjectsLoaded((loadedProjects: Project[]) => {
+    const handleProjectsLoaded = (loadedProjects: Project[]) => {
+      console.log('Projects loaded in Sidebar:', loadedProjects.length);
       setProjects(loadedProjects);
-    });
+    };
+    api.onProjectsLoaded(handleProjectsLoaded);
     
     // Set up event listener for when a project is created
     api.onProjectCreated((project: Project) => {
@@ -109,17 +114,34 @@ const Sidebar: React.FC = () => {
       setIsProjectsExpanded(true);
     });
     
+    // Set up event listener for when a project is deleted
+    const handleProjectDeleted = (projectId: string) => {
+      console.log('Project deleted event received in sidebar:', projectId);
+      
+      // Refresh the project list
+      api.loadProjects();
+      
+      // If we're currently on the deleted project's page, navigate back to projects list
+      if (location.pathname === `/projects/${projectId}`) {
+        navigate('/projects');
+      }
+    };
+    
+    api.onProjectDeleted(handleProjectDeleted);
+    
     // Request projects to be loaded
     api.loadProjects();
     
     // Clean up event listeners
     return () => {
+      console.log('Cleaning up event listeners in Sidebar');
       if (api.removeAllListeners) {
         api.removeAllListeners('projects-loaded');
         api.removeAllListeners('project-created');
+        api.removeAllListeners('project-deleted');
       }
     };
-  }, [api]);
+  }, [api, location.pathname, navigate]);
 
   // Common link style function
   const getLinkStyle = ({ isActive }: { isActive: boolean }) => ({
