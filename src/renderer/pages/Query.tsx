@@ -24,6 +24,17 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
   const handleQueryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setSqlQuery(e.target.value);
   };
+  
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Check for Command+Enter (Mac) or Ctrl+Enter (Windows/Linux)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault(); // Prevent default behavior
+      if (!isExecuting && sqlQuery.trim()) {
+        handleExecuteQuery();
+      }
+    }
+  };
 
   const handleExecuteQuery = async () => {
     if (!sqlQuery.trim()) {
@@ -156,6 +167,7 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
           <textarea
             value={sqlQuery}
             onChange={handleQueryChange}
+            onKeyDown={handleKeyDown}
             placeholder="Enter your SQL query here (e.g., SELECT * FROM data WHERE customerCode = 'SONYE')"
             style={{
               width: '100%',
@@ -170,21 +182,34 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
           />
           
           <div style={{ marginTop: '10px' }}>
-            <button 
-              onClick={handleExecuteQuery}
-              disabled={isExecuting || !sqlQuery.trim()}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: '#3498db',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: isExecuting || !sqlQuery.trim() ? 'not-allowed' : 'pointer',
-                opacity: isExecuting || !sqlQuery.trim() ? 0.7 : 1
-              }}
-            >
-              {isExecuting ? 'Executing...' : 'Execute'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <button 
+                onClick={handleExecuteQuery}
+                disabled={isExecuting || !sqlQuery.trim()}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#3498db',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: isExecuting || !sqlQuery.trim() ? 'not-allowed' : 'pointer',
+                  opacity: isExecuting || !sqlQuery.trim() ? 0.7 : 1
+                }}
+              >
+                {isExecuting ? 'Executing...' : 'Execute'}
+              </button>
+              <span style={{ marginLeft: '10px', color: '#666', fontSize: '12px' }}>
+                or press <kbd style={{ 
+                  backgroundColor: '#f7f7f7', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '3px', 
+                  padding: '1px 5px', 
+                  fontFamily: 'monospace' 
+                }}>
+                  {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'} + Enter
+                </kbd>
+              </span>
+            </div>
           </div>
         </div>
       </div>
