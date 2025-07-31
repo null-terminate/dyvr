@@ -3,6 +3,14 @@ import { useParams } from 'react-router-dom';
 import { useMainProcess } from '../context/MainProcessContext';
 import AddSourceDirectoryModal from '../components/AddSourceDirectoryModal';
 
+// Import ScanProgress interface
+interface ScanProgress {
+  projectId?: string;
+  current: number;
+  total: number;
+  message: string;
+}
+
 interface ProjectDetails {
   id: string;
   name: string;
@@ -23,6 +31,12 @@ const ProjectDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'settings'>('details');
   const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState<boolean>(false);
+  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [scanComplete, setScanComplete] = useState<{
+    processedFiles: number;
+    extractedObjects: number;
+  } | null>(null);
   const api = useMainProcess();
 
   // Function to load a single project
@@ -67,15 +81,62 @@ const ProjectDetail: React.FC = () => {
       }
     });
     
+    // Listen for scan started events
+    api.onScanStarted((data) => {
+      if (data.projectId === id) {
+        setIsScanning(true);
+        setScanProgress({
+          projectId: id,
+          current: 0,
+          total: 100,
+          message: data.message
+        });
+      }
+    });
+    
+    // Listen for scan progress events
+    api.onScanProgress((progress) => {
+      if (progress.projectId === id) {
+        setScanProgress(progress);
+        setIsScanning(true);
+        
+        // If progress is complete, reset after a delay
+        if (progress.current >= progress.total) {
+          setTimeout(() => {
+            setIsScanning(false);
+          }, 5000); // Keep the completed progress visible for 5 seconds
+        }
+      }
+    });
+    
+    // Listen for scan complete events
+    api.onScanComplete((result) => {
+      if (result.projectId === id) {
+        setScanComplete({
+          processedFiles: result.processedFiles,
+          extractedObjects: result.extractedObjects
+        });
+        
+        // Reset scan complete after a delay
+        setTimeout(() => {
+          setScanComplete(null);
+        }, 10000); // Keep the completion message visible for 10 seconds
+      }
+    });
+    
     api.onError((error) => {
       setIsLoading(false);
       setProject(null); // Ensure project is null on error
+      setIsScanning(false);
     });
     
     // Clean up event listeners
     return () => {
       if (api.removeAllListeners) {
         api.removeAllListeners('source-folder-added');
+        api.removeAllListeners('scan-started');
+        api.removeAllListeners('scan-progress');
+        api.removeAllListeners('scan-complete');
         api.removeAllListeners('error');
       }
     };
@@ -157,12 +218,58 @@ const ProjectDetail: React.FC = () => {
                       api.scanSourceDirectories(project.id);
                     }
                   }}
-                  disabled={!project || !project.sourceFolders || project.sourceFolders.length === 0}
+                  disabled={!project || !project.sourceFolders || project.sourceFolders.length === 0 || isScanning}
                 >
-                  Scan
+                  {isScanning ? 'Scanning...' : 'Scan'}
                 </button>
               </div>
             </div>
+            
+            {/* Scan Progress Bar */}
+            {isScanning && scanProgress && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Scanning files...</span>
+                    <span>{Math.round((scanProgress.current / scanProgress.total) * 100)}%</span>
+                  </div>
+                  <div style={{ 
+                    width: '100%', 
+                    height: '10px', 
+                    backgroundColor: '#e0e0e0', 
+                    borderRadius: '5px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{ 
+                      width: `${(scanProgress.current / scanProgress.total) * 100}%`, 
+                      height: '100%', 
+                      backgroundColor: '#4CAF50',
+                      borderRadius: '5px',
+                      transition: 'width 0.3s ease'
+                    }}></div>
+                  </div>
+                  <div style={{ marginTop: '5px', fontSize: '14px', color: '#666' }}>
+                    {scanProgress.message}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Scan Complete Message */}
+            {!isScanning && scanComplete && (
+              <div style={{ 
+                marginBottom: '20px', 
+                padding: '10px', 
+                backgroundColor: '#e8f5e9', 
+                borderRadius: '4px',
+                border: '1px solid #c8e6c9'
+              }}>
+                <p style={{ margin: 0, color: '#2e7d32' }}>
+                  <strong>Scan completed successfully!</strong> Processed {scanComplete.processedFiles} files and extracted {scanComplete.extractedObjects} objects.
+                </p>
+              </div>
+            )}
+            
             {project.sourceFolders && project.sourceFolders.length > 0 ? (
               <ul style={{ listStyle: 'none', padding: 0 }}>
                 {project.sourceFolders.map((folder) => (

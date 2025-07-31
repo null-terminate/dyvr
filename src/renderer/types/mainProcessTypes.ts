@@ -92,6 +92,7 @@ export interface MainProcessAPI {
   onSourceFolderRemoved: (callback: (data: { projectId: string, folderId: string }) => void) => void;
   openFolder: (folderPath: string) => void;
   scanSourceDirectories: (projectId: string) => void;
+  onScanStarted: (callback: (data: { projectId: string, message: string }) => void) => void;
   onScanProgress: (callback: (progress: { projectId: string, current: number, total: number, message: string }) => void) => void;
   onScanComplete: (callback: (result: { projectId: string, processedFiles: number, extractedObjects: number }) => void) => void;
 

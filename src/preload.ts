@@ -52,6 +52,9 @@ contextBridge.exposeInMainWorld(
     scanSourceDirectories: (projectId: string) => {
       ipcRenderer.send('scan-source-directories', projectId);
     },
+    onScanStarted: (callback: (data: { projectId: string, message: string }) => void) => {
+      ipcRenderer.on('scan-started', (_event, data) => callback(data));
+    },
     onScanProgress: (callback: (progress: { projectId: string, current: number, total: number, message: string }) => void) => {
       ipcRenderer.on('scan-progress', (_event, progress) => callback(progress));
     },

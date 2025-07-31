@@ -349,6 +349,8 @@ ipcMain.on('open-folder', async (event, folderPath: string) => {
 
 /**
  * Scan source directories for JSON files and extract data
+ * This is an asynchronous operation that runs in the background
+ * and sends progress updates to the renderer process
  */
 ipcMain.on('scan-source-directories', async (event, projectId: string) => {
   try {
@@ -377,6 +379,27 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
       message: 'Starting JSON file scan...' 
     });
 
+    // Start the scan process in the background
+    scanSourceDirectoriesAsync(projectId, project, dbManager);
+
+    // Immediately return to the renderer process
+    sendResponse('scan-started', { 
+      projectId,
+      message: 'Scan started in background. Progress will be reported in the Files tab.' 
+    });
+
+  } catch (error) {
+    console.error('Failed to start scan source directories:', error);
+    sendError('Failed to start scan source directories', (error as Error).message);
+  }
+});
+
+/**
+ * Asynchronous function to scan source directories in the background
+ * This function runs independently and sends progress updates to the renderer
+ */
+async function scanSourceDirectoriesAsync(projectId: string, project: Project, dbManager: any): Promise<void> {
+  try {
     // Drop the existing data table if it exists and create a new one
     await dbManager.executeNonQuery(`DROP TABLE IF EXISTS data`);
     
@@ -388,8 +411,29 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
     `);
 
     let processedFiles = 0;
+    let totalFiles = 0;
     let extractedObjects = 0;
     const processedColumns = new Set<string>();
+
+    // First, count total files to provide better progress reporting
+    for (const folder of project.sourceFolders) {
+      if (!folder || !folder.path) continue;
+      
+      try {
+        const jsonFiles = await findJsonFiles(folder.path);
+        totalFiles += jsonFiles.length;
+      } catch (error) {
+        console.warn(`Error counting files in ${folder.path}:`, error);
+      }
+    }
+
+    // Send updated progress with total file count
+    sendResponse('scan-progress', { 
+      projectId,
+      current: 0, 
+      total: totalFiles, 
+      message: `Found ${totalFiles} JSON files to process` 
+    });
 
     // Process each source folder
     for (let i = 0; i < project.sourceFolders.length; i++) {
@@ -403,8 +447,8 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
       // Send progress update for each folder
       sendResponse('scan-progress', { 
         projectId,
-        current: i, 
-        total: project.sourceFolders.length, 
+        current: processedFiles, 
+        total: totalFiles, 
         message: `Scanning folder: ${folder.path}` 
       });
 
@@ -420,13 +464,15 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
           continue;
         }
         
-        // Send progress update for each file
-        sendResponse('scan-progress', { 
-          projectId,
-          current: i, 
-          total: project.sourceFolders.length, 
-          message: `Processing file ${j + 1}/${jsonFiles.length}: ${path.basename(filePath)}` 
-        });
+        // Send progress update for each file (every 5 files to avoid flooding)
+        if (j % 5 === 0 || j === jsonFiles.length - 1) {
+          sendResponse('scan-progress', { 
+            projectId,
+            current: processedFiles, 
+            total: totalFiles, 
+            message: `Processing file ${j + 1}/${jsonFiles.length} in ${path.basename(folder.path)}: ${path.basename(filePath)}` 
+          });
+        }
 
         try {
           // Process the JSON file line by line
@@ -468,6 +514,7 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
         } catch (fileError) {
           console.warn(`Error processing file ${filePath}:`, fileError);
           // Continue with next file
+          processedFiles++;
         }
       }
     }
@@ -475,8 +522,8 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
     // Send final progress update
     sendResponse('scan-progress', { 
       projectId,
-      current: project.sourceFolders.length, 
-      total: project.sourceFolders.length, 
+      current: totalFiles, 
+      total: totalFiles, 
       message: `Scan completed. Processed ${processedFiles} files and extracted ${extractedObjects} objects.` 
     });
 
@@ -491,7 +538,7 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
     console.error('Failed to scan source directories:', error);
     sendError('Failed to scan source directories', (error as Error).message);
   }
-});
+}
 
 /**
  * Find all JSON files in a directory recursively
