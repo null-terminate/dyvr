@@ -6,6 +6,20 @@ export interface ProjectSummary {
   lastOpened: Date;
 }
 
+export interface ScanStatus {
+  isScanning: boolean;  // Whether a scan is currently in progress
+  progress?: {          // Current progress of the scan (if in progress)
+    current: number;
+    total: number;
+    message: string;
+  } | undefined;
+  lastScanResult?: {    // Results of the last completed scan
+    processedFiles: number;
+    extractedObjects: number;
+    completedDate: Date;
+  } | undefined;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -14,6 +28,7 @@ export interface Project {
   sourceFolders: SourceFolder[];
   created: Date;
   lastOpened: Date;
+  scanStatus?: ScanStatus;  // Current scan status and progress
 }
 
 export interface SourceFolder {

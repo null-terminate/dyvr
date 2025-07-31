@@ -371,6 +371,18 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
     // Get database manager for the project
     const dbManager = await projectManager.openProjectDatabase(projectId);
 
+    // Update project with initial scan status
+    await projectManager.updateProjectInRegistry(projectId, {
+      scanStatus: {
+        isScanning: true,
+        progress: {
+          current: 0,
+          total: project.sourceFolders.length,
+          message: 'Starting JSON file scan...'
+        }
+      }
+    });
+
     // Send initial progress update
     sendResponse('scan-progress', { 
       projectId,
@@ -427,6 +439,18 @@ async function scanSourceDirectoriesAsync(projectId: string, project: Project, d
       }
     }
 
+    // Update project with total file count
+    await projectManager.updateProjectInRegistry(projectId, {
+      scanStatus: {
+        isScanning: true,
+        progress: {
+          current: 0,
+          total: totalFiles,
+          message: `Found ${totalFiles} JSON files to process`
+        }
+      }
+    });
+
     // Send updated progress with total file count
     sendResponse('scan-progress', { 
       projectId,
@@ -444,7 +468,18 @@ async function scanSourceDirectoriesAsync(projectId: string, project: Project, d
         continue;
       }
       
-      // Send progress update for each folder
+      // Update project and send progress update for each folder
+      await projectManager.updateProjectInRegistry(projectId, {
+        scanStatus: {
+          isScanning: true,
+          progress: {
+            current: processedFiles,
+            total: totalFiles,
+            message: `Scanning folder: ${folder.path}`
+          }
+        }
+      });
+      
       sendResponse('scan-progress', { 
         projectId,
         current: processedFiles, 
@@ -464,8 +499,22 @@ async function scanSourceDirectoriesAsync(projectId: string, project: Project, d
           continue;
         }
         
-        // Send progress update for each file (every 5 files to avoid flooding)
+        // Update project and send progress update for each file (every 5 files to avoid flooding)
         if (j % 5 === 0 || j === jsonFiles.length - 1) {
+          // Only update the project status every 10 files to reduce database writes
+          if (j % 10 === 0 || j === jsonFiles.length - 1) {
+            await projectManager.updateProjectInRegistry(projectId, {
+              scanStatus: {
+                isScanning: true,
+                progress: {
+                  current: processedFiles,
+                  total: totalFiles,
+                  message: `Processing file ${j + 1}/${jsonFiles.length} in ${path.basename(folder.path)}: ${path.basename(filePath)}`
+                }
+              }
+            });
+          }
+          
           sendResponse('scan-progress', { 
             projectId,
             current: processedFiles, 
@@ -519,7 +568,23 @@ async function scanSourceDirectoriesAsync(projectId: string, project: Project, d
       }
     }
 
-    // Send final progress update
+    // Update project with final status and send final progress update
+    await projectManager.updateProjectInRegistry(projectId, {
+      scanStatus: {
+        isScanning: false,
+        progress: {
+          current: totalFiles,
+          total: totalFiles,
+          message: `Scan completed. Processed ${processedFiles} files and extracted ${extractedObjects} objects.`
+        },
+        lastScanResult: {
+          processedFiles,
+          extractedObjects,
+          completedDate: new Date()
+        }
+      }
+    });
+
     sendResponse('scan-progress', { 
       projectId,
       current: totalFiles, 
@@ -536,6 +601,24 @@ async function scanSourceDirectoriesAsync(projectId: string, project: Project, d
 
   } catch (error) {
     console.error('Failed to scan source directories:', error);
+    
+    // Update project with error status
+    try {
+      await projectManager.updateProjectInRegistry(projectId, {
+        scanStatus: {
+          isScanning: false,
+          progress: undefined,
+          lastScanResult: {
+            processedFiles: 0,
+            extractedObjects: 0,
+            completedDate: new Date()
+          }
+        }
+      });
+    } catch (updateError) {
+      console.error('Failed to update project scan status:', updateError);
+    }
+    
     sendError('Failed to scan source directories', (error as Error).message);
   }
 }

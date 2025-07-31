@@ -92,6 +92,7 @@ export class ProjectManager {
             if (projectData.sourceFolders) project.sourceFolders = projectData.sourceFolders;
             if (projectData.createdDate) project.createdDate = new Date(projectData.createdDate);
             if (projectData.lastModified) project.lastModified = new Date(projectData.lastModified);
+            if (projectData.scanStatus) project.scanStatus = projectData.scanStatus;
           }
           
           // Add to cache
@@ -194,11 +195,12 @@ export class ProjectManager {
       }
       
       // Update cache
-      const updatedProject = {
+      const updatedProject: Project = {
         ...project,
         name: updates.name || project.name,
         workingDirectory: updates.workingDirectory || project.workingDirectory,
         sourceFolders: updates.sourceFolders || project.sourceFolders,
+        scanStatus: updates.scanStatus !== undefined ? updates.scanStatus : project.scanStatus,
         lastModified: new Date()
       };
       
@@ -431,7 +433,8 @@ export class ProjectManager {
         name: project.name,
         sourceFolders: project.sourceFolders,
         createdDate: project.createdDate,
-        lastModified: new Date()
+        lastModified: new Date(),
+        scanStatus: project.scanStatus
       };
       
       // Write to project.json file

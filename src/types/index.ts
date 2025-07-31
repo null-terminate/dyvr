@@ -13,6 +13,20 @@ export interface SourceFolder {
   addedDate: Date;
 }
 
+export interface ScanStatus {
+  isScanning: boolean;  // Whether a scan is currently in progress
+  progress?: {          // Current progress of the scan (if in progress)
+    current: number;
+    total: number;
+    message: string;
+  } | undefined;
+  lastScanResult?: {    // Results of the last completed scan
+    processedFiles: number;
+    extractedObjects: number;
+    completedDate: Date;
+  } | undefined;
+}
+
 export interface Project {
   id: string;           // Unique identifier
   name: string;         // User-provided name
@@ -20,6 +34,7 @@ export interface Project {
   sourceFolders: SourceFolder[];  // Array of source data folder paths
   createdDate: Date;
   lastModified: Date;
+  scanStatus?: ScanStatus | undefined;  // Current scan status and progress
 }
 
 export interface ColumnSchema {

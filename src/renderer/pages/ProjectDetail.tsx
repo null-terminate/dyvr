@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useMainProcess } from '../context/MainProcessContext';
 import AddSourceDirectoryModal from '../components/AddSourceDirectoryModal';
+import { Project, ScanStatus } from '../types/mainProcessTypes';
 
 // Import ScanProgress interface
 interface ScanProgress {
@@ -11,23 +12,9 @@ interface ScanProgress {
   message: string;
 }
 
-interface ProjectDetails {
-  id: string;
-  name: string;
-  path?: string;
-  workingDirectory: string;
-  description?: string;
-  created?: Date;
-  lastOpened?: Date;
-  sourceFolders?: Array<{
-    id: string;
-    path: string;
-  }>;
-}
-
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [project, setProject] = useState<ProjectDetails | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'details' | 'files' | 'settings'>('details');
   const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState<boolean>(false);
@@ -49,6 +36,30 @@ const ProjectDetail: React.FC = () => {
       // Use the getProject method to fetch only the specific project
       const projectData = await api.getProject(id);
       setProject(projectData);
+      
+      // Initialize scan status from project data if available
+      if (projectData.scanStatus) {
+        // Set scanning state
+        setIsScanning(projectData.scanStatus.isScanning);
+        
+        // Set progress if available
+        if (projectData.scanStatus.progress) {
+          setScanProgress({
+            projectId: projectData.id,
+            current: projectData.scanStatus.progress.current,
+            total: projectData.scanStatus.progress.total,
+            message: projectData.scanStatus.progress.message
+          });
+        }
+        
+        // Set scan complete info if available and not currently scanning
+        if (!projectData.scanStatus.isScanning && projectData.scanStatus.lastScanResult) {
+          setScanComplete({
+            processedFiles: projectData.scanStatus.lastScanResult.processedFiles,
+            extractedObjects: projectData.scanStatus.lastScanResult.extractedObjects
+          });
+        }
+      }
     } catch (error) {
       console.error("Failed to load project:", error);
       setProject(null);
@@ -172,12 +183,12 @@ const ProjectDetail: React.FC = () => {
             </div>
             <div className="form-group">
               <label>Path</label>
-              <input type="text" value={project.path || project.workingDirectory} readOnly />
+              <input type="text" value={project.workingDirectory} readOnly />
             </div>
             <div className="form-group">
               <label>Description</label>
               <textarea 
-                value={project.description || 'No description available.'} 
+                value="No description available." 
                 readOnly 
                 style={{ height: '100px' }}
               />
@@ -191,7 +202,7 @@ const ProjectDetail: React.FC = () => {
               />
             </div>
             <div className="form-group">
-              <label>Last Opened</label>
+              <label>Last Modified</label>
               <input 
                 type="text" 
                 value={project.lastOpened ? project.lastOpened.toLocaleDateString() : 'N/A'} 
