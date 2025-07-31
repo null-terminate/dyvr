@@ -78,6 +78,14 @@ button:hover {
   background-color: #2980b9;
 }
 
+.trash-can {
+  background-color: #3498db;
+}
+
+.trash-can:hover {
+  background-color: #d21937;
+}
+
 button.secondary {
   background-color: #95a5a6;
 }
