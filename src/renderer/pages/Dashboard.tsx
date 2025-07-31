@@ -67,10 +67,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleOpenProject = () => {
-    // In a real app, this would open a dialog to select a project
-  };
-
   return (
     <div>
       <h2>Dashboard</h2>
@@ -78,9 +74,6 @@ const Dashboard: React.FC = () => {
       <div style={{ marginBottom: '20px' }}>
         <button onClick={handleCreateProject} style={{ marginRight: '10px' }}>
           Create New Project
-        </button>
-        <button onClick={handleOpenProject} className="secondary">
-          Open Existing Project
         </button>
       </div>
       
