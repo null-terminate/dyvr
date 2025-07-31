@@ -89,8 +89,45 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
-    // In a real implementation, this would re-execute the query with the new page
-    handleExecuteQuery();
+    
+    // Execute the query for the new page without resetting the UI state
+    if (api && sqlQuery.trim() && projectId) {
+      // Show a subtle loading indicator without clearing results
+      setIsExecuting(true);
+      
+      // Execute the query for the new page
+      api.executeSqlQuery(projectId, sqlQuery, [], newPage, rowsPerPage);
+      
+      // Set up event listeners for the new query
+      const handleQueryResults = (queryResult: any) => {
+        setResults({
+          columns: queryResult.columns,
+          rows: queryResult.data,
+          totalRows: queryResult.totalCount
+        });
+        setIsExecuting(false);
+        
+        // Remove the event listener after receiving the results
+        if (api.removeAllListeners) {
+          api.removeAllListeners('sql-query-results');
+        }
+      };
+      
+      const handleError = (error: { message: string, details?: string }) => {
+        setError(`Error executing query: ${error.details || error.message}`);
+        setIsExecuting(false);
+        
+        // Remove the event listeners
+        if (api.removeAllListeners) {
+          api.removeAllListeners('error');
+          api.removeAllListeners('sql-query-results');
+        }
+      };
+      
+      // Set up event listeners
+      api.onSqlQueryResults(handleQueryResults);
+      api.onError(handleError);
+    }
   };
 
   const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -105,42 +142,50 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
   const endRow = Math.min(currentPage * rowsPerPage, results?.totalRows || 0);
 
   return (
-    <div>
-      <h2>SQL Query</h2>
-      
-      <div style={{ marginBottom: '20px' }}>
-        <textarea
-          value={sqlQuery}
-          onChange={handleQueryChange}
-          placeholder="Enter your SQL query here (e.g., SELECT * FROM data WHERE customerCode = 'SONYE')"
-          style={{
-            width: '100%',
-            height: '120px',
-            padding: '10px',
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            borderRadius: '4px',
-            border: '1px solid #ccc',
-            resize: 'vertical'
-          }}
-        />
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%',
+      maxHeight: '100vh'
+    }}>
+      {/* Fixed query section that stays in view */}
+      <div style={{ flex: '0 0 auto' }}>
+        <h2>SQL Query</h2>
         
-        <div style={{ marginTop: '10px' }}>
-          <button 
-            onClick={handleExecuteQuery}
-            disabled={isExecuting || !sqlQuery.trim()}
+        <div style={{ marginBottom: '20px' }}>
+          <textarea
+            value={sqlQuery}
+            onChange={handleQueryChange}
+            placeholder="Enter your SQL query here (e.g., SELECT * FROM data WHERE customerCode = 'SONYE')"
             style={{
-              padding: '8px 16px',
-              backgroundColor: '#3498db',
-              color: 'white',
-              border: 'none',
+              width: '100%',
+              height: '120px',
+              padding: '10px',
+              fontFamily: 'monospace',
+              fontSize: '14px',
               borderRadius: '4px',
-              cursor: isExecuting || !sqlQuery.trim() ? 'not-allowed' : 'pointer',
-              opacity: isExecuting || !sqlQuery.trim() ? 0.7 : 1
+              border: '1px solid #ccc',
+              resize: 'vertical'
             }}
-          >
-            {isExecuting ? 'Executing...' : 'Execute'}
-          </button>
+          />
+          
+          <div style={{ marginTop: '10px' }}>
+            <button 
+              onClick={handleExecuteQuery}
+              disabled={isExecuting || !sqlQuery.trim()}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#3498db',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isExecuting || !sqlQuery.trim() ? 'not-allowed' : 'pointer',
+                opacity: isExecuting || !sqlQuery.trim() ? 0.7 : 1
+              }}
+            >
+              {isExecuting ? 'Executing...' : 'Execute'}
+            </button>
+          </div>
         </div>
       </div>
       
@@ -156,16 +201,43 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
         </div>
       )}
       
-      {isExecuting && (
+      {isExecuting && !results && (
         <div style={{ textAlign: 'center', padding: '20px' }}>
           <p>Executing query...</p>
           {/* Could add a spinner here */}
         </div>
       )}
       
-      {results && !isExecuting && (
-        <div>
-          <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Scrollable results section */}
+      {results && (
+        <div style={{ 
+          flex: '1 1 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          maxHeight: 'calc(100vh - 250px)' // Adjust based on the height of your query section
+        }}>
+          <div style={{ 
+            marginBottom: '10px', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center'
+          }}>
+            {isExecuting && (
+              <div style={{ 
+                position: 'absolute', 
+                top: '50%', 
+                left: '50%', 
+                transform: 'translate(-50%, -50%)',
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                padding: '10px 20px',
+                borderRadius: '4px',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                zIndex: 10
+              }}>
+                Loading page {currentPage}...
+              </div>
+            )}
             <div>
               <strong>Results:</strong> {results.totalRows} rows found
             </div>
@@ -186,56 +258,9 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
             </div>
           </div>
           
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ 
-              width: '100%', 
-              borderCollapse: 'collapse',
-              border: '1px solid #ddd'
-            }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f5f5f5' }}>
-                  {results.columns.map((column, index) => (
-                    <th 
-                      key={index}
-                      style={{ 
-                        padding: '10px', 
-                        textAlign: 'left',
-                        borderBottom: '2px solid #ddd'
-                      }}
-                    >
-                      {column}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {results.rows.map((row, rowIndex) => (
-                  <tr 
-                    key={rowIndex}
-                    style={{ 
-                      backgroundColor: rowIndex % 2 === 0 ? 'white' : '#f9f9f9'
-                    }}
-                  >
-                    {row.map((cell, cellIndex) => (
-                      <td 
-                        key={cellIndex}
-                        style={{ 
-                          padding: '8px 10px',
-                          borderBottom: '1px solid #ddd'
-                        }}
-                      >
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
           {totalPages > 1 && (
             <div style={{ 
-              marginTop: '20px', 
+              marginBottom: '20px', 
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center'
@@ -304,6 +329,60 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
               </div>
             </div>
           )}
+          
+          <div style={{ 
+            overflowY: 'auto',
+            overflowX: 'auto',
+            flex: '1 1 auto',
+            border: '1px solid #ddd',
+            borderRadius: '4px'
+          }}>
+            <table style={{ 
+              width: '100%', 
+              borderCollapse: 'collapse',
+              border: '1px solid #ddd'
+            }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f5f5f5' }}>
+                  {results.columns.map((column, index) => (
+                    <th 
+                      key={index}
+                      style={{ 
+                        padding: '10px', 
+                        textAlign: 'left',
+                        borderBottom: '2px solid #ddd'
+                      }}
+                    >
+                      {column}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {results.rows.map((row, rowIndex) => (
+                  <tr 
+                    key={rowIndex}
+                    style={{ 
+                      backgroundColor: rowIndex % 2 === 0 ? 'white' : '#f9f9f9'
+                    }}
+                  >
+                    {row.map((cell, cellIndex) => (
+                      <td 
+                        key={cellIndex}
+                        style={{ 
+                          padding: '8px 10px',
+                          borderBottom: '1px solid #ddd'
+                        }}
+                      >
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
         </div>
       )}
     </div>
