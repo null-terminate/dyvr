@@ -509,31 +509,60 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
                   }
                 }
                 
-                // Second pass: prepare bulk insert for all objects in the chunk
+                // Second pass: prepare true bulk insert for all objects in the chunk
                 const validObjects = chunk.filter(obj => Object.keys(obj).length > 0);
                 
                 if (validObjects.length > 0) {
-                  // Prepare bulk insert
+                  // Get all columns across all objects in this chunk
+                  const allColumns = new Set<string>();
                   for (const obj of validObjects) {
-                    const filteredObj: any = {};
                     for (const key of Object.keys(obj)) {
                       if (!key.startsWith('_')) {
-                        filteredObj[key] = obj[key];
+                        allColumns.add(key);
                       }
                     }
-                    
-                    const columns = Object.keys(filteredObj).map(key => `"${key}"`).join(', ');
-                    const placeholders = Object.keys(filteredObj).map(() => '?').join(', ');
-                    const values = Object.values(filteredObj);
-                    
-                    // Add source file information
-                    await dbManager.executeNonQuery(
-                      `INSERT INTO ${tableName} (_source_file, ${columns}) VALUES (?, ${placeholders})`,
-                      [filePath, ...values]
-                    );
-                    
-                    extractedObjects++;
                   }
+                  
+                  // Convert to array and sort for consistent order
+                  const columnArray = Array.from(allColumns).sort();
+                  
+                  // Create column string for SQL query
+                  const columnString = columnArray.map(col => `"${col}"`).join(', ');
+                  
+                  // Build the multi-row VALUES part of the query and parameter array
+                  let valuesSql = '';
+                  const allParams: any[] = [];
+                  
+                  validObjects.forEach((obj, index) => {
+                    // Add comma if not the first item
+                    if (index > 0) {
+                      valuesSql += ', ';
+                    }
+                    
+                    // Add source file parameter
+                    allParams.push(filePath);
+                    
+                    // Create placeholders for this row and add values to params array
+                    valuesSql += '(?';  // Start with source file placeholder
+                    
+                    // Add placeholders and values for each column
+                    columnArray.forEach(col => {
+                      valuesSql += ', ?';
+                      // Add the value or null if it doesn't exist
+                      allParams.push(obj[col] !== undefined ? obj[col] : null);
+                    });
+                    
+                    valuesSql += ')';
+                  });
+                  
+                  // Execute the bulk insert
+                  await dbManager.executeNonQuery(
+                    `INSERT INTO ${tableName} (_source_file, ${columnString}) VALUES ${valuesSql}`,
+                    allParams
+                  );
+                  
+                  // Update the count of extracted objects
+                  extractedObjects += validObjects.length;
                 }
               }
             }
