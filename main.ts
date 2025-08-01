@@ -479,43 +479,61 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
               // Parse the file
               const jsonData = await jsonScanner.parseFile(filePath);
               
-              // Process each object in the file
-              for (const obj of jsonData) {
-                // Add columns to the data table if needed
-                for (const key of Object.keys(obj)) {
-                  if (!key.startsWith('_') && !processedColumns.has(key)) {
-                    // Add column to the table if it doesn't exist
-                    try {
-                      await dbManager.executeNonQuery(`ALTER TABLE ${tableName} ADD COLUMN "${key}" TEXT`);
-                      processedColumns.add(key);
-                    } catch (columnError) {
-                      // Column might already exist, ignore the error
-                      console.warn(`Column "${key}" might already exist:`, columnError);
-                      processedColumns.add(key);
+              // Define chunk size
+              const CHUNK_SIZE = 50;
+              
+              // Process objects in chunks
+              for (let i = 0; i < jsonData.length; i += CHUNK_SIZE) {
+                // Get current chunk of objects
+                const chunk = jsonData.slice(i, i + CHUNK_SIZE);
+                
+                // First pass: determine all necessary columns in this chunk
+                const newColumns = new Set<string>();
+                for (const obj of chunk) {
+                  for (const key of Object.keys(obj)) {
+                    if (!key.startsWith('_') && !processedColumns.has(key)) {
+                      newColumns.add(key);
                     }
                   }
                 }
                 
-                // Insert data into the table
-                if (Object.keys(obj).length > 0) {
-                  const filteredObj: any = {};
-                  for (const key of Object.keys(obj)) {
-                    if (!key.startsWith('_')) {
-                      filteredObj[key] = obj[key];
-                    }
+                // Add all new columns to the database at once
+                for (const key of newColumns) {
+                  try {
+                    await dbManager.executeNonQuery(`ALTER TABLE ${tableName} ADD COLUMN "${key}" TEXT`);
+                    processedColumns.add(key);
+                  } catch (columnError) {
+                    // Column might already exist, ignore the error
+                    console.warn(`Column "${key}" might already exist:`, columnError);
+                    processedColumns.add(key);
                   }
-                  
-                  const columns = Object.keys(filteredObj).map(key => `"${key}"`).join(', ');
-                  const placeholders = Object.keys(filteredObj).map(() => '?').join(', ');
-                  const values = Object.values(filteredObj);
-                  
-                  // Add source file information
-                  await dbManager.executeNonQuery(
-                    `INSERT INTO ${tableName} (_source_file, ${columns}) VALUES (?, ${placeholders})`,
-                    [filePath, ...values]
-                  );
-                  
-                  extractedObjects++;
+                }
+                
+                // Second pass: prepare bulk insert for all objects in the chunk
+                const validObjects = chunk.filter(obj => Object.keys(obj).length > 0);
+                
+                if (validObjects.length > 0) {
+                  // Prepare bulk insert
+                  for (const obj of validObjects) {
+                    const filteredObj: any = {};
+                    for (const key of Object.keys(obj)) {
+                      if (!key.startsWith('_')) {
+                        filteredObj[key] = obj[key];
+                      }
+                    }
+                    
+                    const columns = Object.keys(filteredObj).map(key => `"${key}"`).join(', ');
+                    const placeholders = Object.keys(filteredObj).map(() => '?').join(', ');
+                    const values = Object.values(filteredObj);
+                    
+                    // Add source file information
+                    await dbManager.executeNonQuery(
+                      `INSERT INTO ${tableName} (_source_file, ${columns}) VALUES (?, ${placeholders})`,
+                      [filePath, ...values]
+                    );
+                    
+                    extractedObjects++;
+                  }
                 }
               }
             }
