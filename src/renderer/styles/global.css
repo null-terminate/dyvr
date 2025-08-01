@@ -87,6 +87,32 @@ button:hover {
   background-color: #2980b9;
 }
 
+.reveal-button {
+  background-color: #4CAF50;  /* Green */
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.reveal-button:hover {
+  background-color: #388E3C;  /* Darker green */
+}
+
+.delete-project-button {
+  background-color: #d9534f;  /* Red */
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.delete-project-button:hover {
+  background-color: #c9302c;  /* Darker red */
+}
+
 .trash-can {
   background-color: #3498db;
 }

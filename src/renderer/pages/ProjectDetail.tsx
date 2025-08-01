@@ -322,13 +322,7 @@ const ProjectDetail: React.FC = () => {
                     <span>{folder.path}</span>
                     <button 
                       onClick={() => handleRevealFolder(folder.path)}
-                      style={{
-                        padding: '5px 10px',
-                        backgroundColor: '#f0f0f0',
-                        border: '1px solid #ddd',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                      }}
+                      className="reveal-button"
                     >
                       Reveal
                     </button>
@@ -403,15 +397,7 @@ const ProjectDetail: React.FC = () => {
       <div style={{ marginTop: '40px', borderTop: '1px solid #ddd', paddingTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
         <button 
           onClick={handleDeleteProject}
-          style={{
-            padding: '4px 8px',
-            fontSize: '12px',
-            backgroundColor: '#d9534f',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
+          className="delete-project-button"
           title="Delete project"
         >
           Delete Project
