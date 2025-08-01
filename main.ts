@@ -352,7 +352,7 @@ ipcMain.on('open-folder', async (event, folderPath: string) => {
 });
 
 /**
- * Scan source directories for JSON files and extract data
+ * Scan source directories for JSON and JSONL files and extract data
  * This is an asynchronous operation that runs in the background
  * and sends progress updates to the renderer process
  */
@@ -381,8 +381,8 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
         isScanning: true,
         progress: {
           current: 0,
-          total: project.sourceFolders.length,
-          message: 'Starting JSON file scan...'
+          total: 100,
+          message: 'Starting JSON/JSONL file scan...'
         }
       }
     });
@@ -391,188 +391,175 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
     sendResponse('scan-progress', { 
       projectId,
       current: 0, 
-      total: project.sourceFolders.length, 
-      message: 'Starting JSON file scan...' 
+      total: 100, 
+      message: 'Starting JSON/JSONL file scan...' 
     });
 
-    // Start the scan process in the background
-    scanSourceDirectoriesAsync(projectId, project, dbManager);
-
-    // Immediately return to the renderer process
+    // Send scan started event
     sendResponse('scan-started', { 
       projectId,
       message: 'Scan started in background. Progress will be reported in the Files tab.' 
     });
 
-  } catch (error) {
-    console.error('Failed to start scan source directories:', error);
-    sendError('Failed to start scan source directories', (error as Error).message);
-  }
-});
-
-/**
- * Asynchronous function to scan source directories in the background
- * This function runs independently and sends progress updates to the renderer
- */
-async function scanSourceDirectoriesAsync(projectId: string, project: Project, dbManager: any): Promise<void> {
-  try {
-    // Drop the existing data table if it exists and create a new one
-    await dbManager.executeNonQuery(`DROP TABLE IF EXISTS data`);
+    // Create a set to track processed columns
+    const processedColumns = new Set<string>();
     
-    // Create a new data table
+    // Drop the existing data table if it exists and create a new one
+    const tableName = 'data'; // For project-wide scanning, use the 'data' table
+    await dbManager.executeNonQuery(`DROP TABLE IF EXISTS ${tableName}`);
     await dbManager.executeNonQuery(`
-      CREATE TABLE IF NOT EXISTS data (
-        id INTEGER PRIMARY KEY AUTOINCREMENT
+      CREATE TABLE IF NOT EXISTS ${tableName} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        _source_file TEXT,
+        _scan_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    let processedFiles = 0;
     let totalFiles = 0;
+    let processedFiles = 0;
     let extractedObjects = 0;
-    const processedColumns = new Set<string>();
+    const errors: any[] = [];
 
     // First, count total files to provide better progress reporting
     for (const folder of project.sourceFolders) {
       if (!folder || !folder.path) continue;
       
       try {
-        const jsonFiles = await findJsonFiles(folder.path);
+        const jsonFiles = await jsonScanner.findJsonFiles(folder.path);
         totalFiles += jsonFiles.length;
       } catch (error) {
-        console.warn(`Error counting files in ${folder.path}:`, error);
+        console.warn(`Error counting files in ${folder.path || 'unknown path'}:`, error);
       }
     }
 
-    // Update project with total file count
-    await projectManager.updateProjectInRegistry(projectId, {
-      scanStatus: {
-        isScanning: true,
-        progress: {
-          current: 0,
-          total: totalFiles,
-          message: `Found ${totalFiles} JSON files to process`
-        }
-      }
-    });
-
-    // Send updated progress with total file count
-    sendResponse('scan-progress', { 
-      projectId,
-      current: 0, 
-      total: totalFiles, 
-      message: `Found ${totalFiles} JSON files to process` 
-    });
-
     // Process each source folder
-    for (let i = 0; i < project.sourceFolders.length; i++) {
-      const folder = project.sourceFolders[i];
+    for (const folder of project.sourceFolders) {
+      if (!folder || !folder.path) continue;
       
-      if (!folder || !folder.path) {
-        console.warn(`Skipping undefined folder at index ${i}`);
-        continue;
-      }
-      
-      // Update project and send progress update for each folder
-      await projectManager.updateProjectInRegistry(projectId, {
-        scanStatus: {
-          isScanning: true,
-          progress: {
-            current: processedFiles,
-            total: totalFiles,
-            message: `Scanning folder: ${folder.path}`
-          }
-        }
-      });
-      
-      sendResponse('scan-progress', { 
-        projectId,
-        current: processedFiles, 
-        total: totalFiles, 
-        message: `Scanning folder: ${folder.path}` 
-      });
-
-      // Find all JSON files in the folder
-      const jsonFiles = await findJsonFiles(folder.path);
-      
-      // Process each JSON file
-      for (let j = 0; j < jsonFiles.length; j++) {
-        const filePath = jsonFiles[j];
-        
-        if (!filePath) {
-          console.warn(`Skipping undefined file path at index ${j}`);
+      try {
+        if (!fs.existsSync(folder.path)) {
+          errors.push({
+            file: folder.path,
+            error: 'Source folder does not exist'
+          });
           continue;
         }
+
+        // Find all JSON and JSONL files in the folder
+        const jsonFiles = await jsonScanner.findJsonFiles(folder.path);
         
-        // Update project and send progress update for each file (every 5 files to avoid flooding)
-        if (j % 5 === 0 || j === jsonFiles.length - 1) {
-          // Only update the project status every 10 files to reduce database writes
-          if (j % 10 === 0 || j === jsonFiles.length - 1) {
-            await projectManager.updateProjectInRegistry(projectId, {
-              scanStatus: {
-                isScanning: true,
-                progress: {
-                  current: processedFiles,
-                  total: totalFiles,
-                  message: `Processing file ${j + 1}/${jsonFiles.length} in ${path.basename(folder.path)}: ${path.basename(filePath)}`
-                }
-              }
-            });
-          }
+        // Process each file
+        for (let i = 0; i < jsonFiles.length; i++) {
+          const filePath = jsonFiles[i];
           
+          // Send progress update
           sendResponse('scan-progress', { 
             projectId,
             current: processedFiles, 
             total: totalFiles, 
-            message: `Processing file ${j + 1}/${jsonFiles.length} in ${path.basename(folder.path)}: ${path.basename(filePath)}` 
+            message: `Processing file ${processedFiles + 1}/${totalFiles}: ${filePath ? path.basename(filePath) : 'unknown file'}` 
           });
-        }
-
-        try {
-          // Process the JSON file line by line
-          const extractedData = await processJsonFile(filePath);
           
-          // Add columns to the data table if needed
-          for (const obj of extractedData) {
-            for (const key of Object.keys(obj)) {
-              if (!processedColumns.has(key)) {
-                // Add column to the table if it doesn't exist
-                try {
-                  await dbManager.executeNonQuery(`ALTER TABLE data ADD COLUMN "${key}" TEXT`);
-                  processedColumns.add(key);
-                } catch (columnError) {
-                  // Column might already exist, ignore the error
-                  console.warn(`Column "${key}" might already exist:`, columnError);
+          // Update project status periodically (not on every file to reduce DB writes)
+          await projectManager.updateProjectInRegistry(projectId, {
+            scanStatus: {
+              isScanning: true,
+              progress: {
+                current: processedFiles,
+                total: totalFiles,
+                message: `Processing file ${processedFiles + 1}/${totalFiles}: ${filePath ? path.basename(filePath) : 'unknown file'}`
+              }
+            }
+          }).catch(error => {
+            console.error('Failed to update project scan status:', error);
+          });
+          
+          try {
+            if (filePath) {
+              // Parse the file
+              const jsonData = await jsonScanner.parseFile(filePath);
+              
+              // Process each object in the file
+              for (const obj of jsonData) {
+                // Add columns to the data table if needed
+                for (const key of Object.keys(obj)) {
+                  if (!key.startsWith('_') && !processedColumns.has(key)) {
+                    // Add column to the table if it doesn't exist
+                    try {
+                      await dbManager.executeNonQuery(`ALTER TABLE ${tableName} ADD COLUMN "${key}" TEXT`);
+                      processedColumns.add(key);
+                    } catch (columnError) {
+                      // Column might already exist, ignore the error
+                      console.warn(`Column "${key}" might already exist:`, columnError);
+                      processedColumns.add(key);
+                    }
+                  }
+                }
+                
+                // Insert data into the table
+                if (Object.keys(obj).length > 0) {
+                  const filteredObj: any = {};
+                  for (const key of Object.keys(obj)) {
+                    if (!key.startsWith('_')) {
+                      filteredObj[key] = obj[key];
+                    }
+                  }
+                  
+                  const columns = Object.keys(filteredObj).map(key => `"${key}"`).join(', ');
+                  const placeholders = Object.keys(filteredObj).map(() => '?').join(', ');
+                  const values = Object.values(filteredObj);
+                  
+                  // Add source file information
+                  await dbManager.executeNonQuery(
+                    `INSERT INTO ${tableName} (_source_file, ${columns}) VALUES (?, ${placeholders})`,
+                    [filePath, ...values]
+                  );
+                  
+                  extractedObjects++;
                 }
               }
             }
+            
+            processedFiles++;
+            
+            // Yield to the event loop to prevent UI freezing
+            await new Promise(resolve => setTimeout(resolve, 0));
+          } catch (fileError) {
+            errors.push({
+              file: filePath,
+              error: (fileError as Error).message
+            });
+            processedFiles++;
           }
-          
-          // Insert data into the table
-          for (const obj of extractedData) {
-            if (Object.keys(obj).length > 0) {
-              const columns = Object.keys(obj).map(key => `"${key}"`).join(', ');
-              const placeholders = Object.keys(obj).map(() => '?').join(', ');
-              const values = Object.values(obj);
-              
-              await dbManager.executeNonQuery(
-                `INSERT INTO data (${columns}) VALUES (${placeholders})`,
-                values
-              );
-              
-              extractedObjects++;
-            }
-          }
-          
-          processedFiles++;
-        } catch (fileError) {
-          console.warn(`Error processing file ${filePath}:`, fileError);
-          // Continue with next file
-          processedFiles++;
         }
+      } catch (folderError) {
+        errors.push({
+          file: folder.path,
+          error: `Failed to scan folder: ${(folderError as Error).message}`
+        });
       }
     }
 
-    // Update project with final status and send final progress update
+    // Get the schema of the created table
+    const tableSchema = await dbManager.getDataTableSchema('default');
+    
+    // Create scan results
+    const scanResults: ScanResults = {
+      viewId: 'default',
+      totalFiles,
+      processedFiles,
+      totalRecords: extractedObjects,
+      columns: tableSchema.map(col => ({
+        name: col.columnName,
+        type: col.dataType,
+        nullable: col.nullable,
+        sampleValues: []
+      })),
+      errors,
+      scanDate: new Date()
+    };
+
+    // Update project with final status
     await projectManager.updateProjectInRegistry(projectId, {
       scanStatus: {
         isScanning: false,
@@ -589,10 +576,11 @@ async function scanSourceDirectoriesAsync(projectId: string, project: Project, d
       }
     });
 
+    // Send progress update - completed
     sendResponse('scan-progress', { 
       projectId,
-      current: totalFiles, 
-      total: totalFiles, 
+      current: 100, 
+      total: 100, 
       message: `Scan completed. Processed ${processedFiles} files and extracted ${extractedObjects} objects.` 
     });
 
@@ -625,170 +613,10 @@ async function scanSourceDirectoriesAsync(projectId: string, project: Project, d
     
     sendError('Failed to scan source directories', (error as Error).message);
   }
-}
+});
 
-/**
- * Find all JSON files in a directory recursively
- */
-async function findJsonFiles(dir: string): Promise<string[]> {
-  const files: string[] = [];
-  
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      
-      if (entry.isDirectory()) {
-        // Recursively search subdirectories
-        const subDirFiles = await findJsonFiles(fullPath);
-        files.push(...subDirFiles);
-      } else if (entry.isFile() && entry.name.endsWith('.json')) {
-        // Add JSON files to the list
-        files.push(fullPath);
-      }
-    }
-  } catch (error) {
-    console.warn(`Error reading directory ${dir}:`, error);
-  }
-  
-  return files;
-}
-
-/**
- * Process a JSON file line by line and extract objects
- * Uses optimized streaming to handle large files (up to 1GB) efficiently
- */
-async function processJsonFile(filePath: string): Promise<any[]> {
-  const extractedObjects: any[] = [];
-  
-  try {
-    // Create a read stream for the file
-    const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
-    
-    // Create interface for reading line by line
-    const readline = require('readline');
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity
-    });
-    
-    // Track parsing state
-    let insideRootArray = false;
-    let insideObject = false;
-    let objectDepth = 0;
-    let currentObject = '';
-    let insideString = false;
-    let escapeNext = false;
-    
-    // Process the file line by line
-    for await (const line of rl) {
-      // Skip empty lines
-      if (!line.trim()) continue;
-      
-      // Process each character in the line
-      for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        
-        // Always add the current character to the object string if we're inside an object
-        if (insideObject) {
-          currentObject += char;
-        }
-        
-        // Handle escape sequences
-        if (escapeNext) {
-          escapeNext = false;
-          continue;
-        }
-        
-        // Check for escape character
-        if (char === '\\') {
-          escapeNext = true;
-          continue;
-        }
-        
-        // Handle string boundaries
-        if (char === '"' && insideObject) {
-          insideString = !insideString;
-        }
-        
-        // Skip processing special characters if inside a string
-        if (insideString) {
-          continue;
-        }
-        
-        // Check for root array start
-        if (!insideRootArray && char === '[') {
-          insideRootArray = true;
-          continue;
-        }
-        
-        // Check for root array end
-        if (insideRootArray && !insideObject && char === ']') {
-          insideRootArray = false;
-          continue;
-        }
-        
-        // Skip whitespace between objects in the root array
-        if (insideRootArray && !insideObject && /\s|,/.test(char)) {
-          continue;
-        }
-        
-        // Start of a new object in the root array
-        if (insideRootArray && !insideObject && char === '{') {
-          insideObject = true;
-          objectDepth = 1;
-          currentObject = '{';
-          continue;
-        }
-        
-        // Inside an object, track object depth (but only if not inside a string)
-        if (insideObject) {
-          if (char === '{') {
-            objectDepth++;
-          } else if (char === '}') {
-            objectDepth--;
-            
-            // If we've closed the root object, process it
-            if (objectDepth === 0) {
-              insideObject = false;
-              insideString = false; // Reset string state
-              
-              try {
-                const obj = JSON.parse(currentObject);
-                if (typeof obj === 'object' && obj !== null) {
-                  const extractedObj: any = {};
-                  
-                  // Extract only first-level properties
-                  for (const [key, value] of Object.entries(obj)) {
-                    // Store only primitive values or stringified complex values
-                    if (value === null) {
-                      extractedObj[key] = null;
-                    } else if (typeof value !== 'object') {
-                      extractedObj[key] = value;
-                    } else {
-                      extractedObj[key] = JSON.stringify(value);
-                    }
-                  }
-                  
-                  extractedObjects.push(extractedObj);
-                }
-              } catch (parseError) {
-                console.log(`Error parsing object: ${currentObject}`);
-              }
-              
-              currentObject = '';
-            }
-          }
-        }
-      }
-    }
-  } catch (fileError) {
-    console.warn(`Error reading file ${filePath}:`, fileError);
-  }
-  
-  return extractedObjects;
-}
+// The findJsonFiles, processJsonFile, and processJsonlFile functions have been removed
+// as we now use the JSONScanner class methods instead
 
 /**
  * Select a folder using the system dialog
@@ -902,77 +730,8 @@ ipcMain.on('get-views', async (event, projectId: string) => {
 
 // IPC Event Handlers for Data Scanning and Query Operations
 
-/**
- * Scan JSON data for a view
- */
-ipcMain.on('scan-data', async (event, data: { projectId: string; viewId: string }) => {
-  try {
-    if (!data || !data.projectId || !data.viewId) {
-      throw new Error('Project ID and view ID are required');
-    }
-
-    // Get project to access source folders and working directory
-    const project = await projectManager.getProject(data.projectId);
-    if (!project) {
-      throw new Error('Project not found');
-    }
-
-    if (!project.sourceFolders || project.sourceFolders.length === 0) {
-      throw new Error('No source folders configured for this project');
-    }
-
-    // Get database manager for the project
-    const dbManager = await projectManager.openProjectDatabase(data.projectId);
-
-    // Send progress update - scanning started
-    sendResponse('scan-progress', { 
-      current: 0, 
-      total: 100, 
-      message: 'Starting JSON file scan...' 
-    });
-
-    // Scan source folders
-    const scanResults = await jsonScanner.scanSourceFolders(project.sourceFolders);
-    scanResults.viewId = data.viewId;
-
-    // Send progress update - scan completed
-    sendResponse('scan-progress', { 
-      current: 50, 
-      total: 100, 
-      message: `Found ${scanResults.totalRecords} records in ${scanResults.processedFiles} files` 
-    });
-
-    if (scanResults.totalRecords > 0) {
-      // Create data table with discovered schema
-      await jsonScanner.createDataTable(dbManager, data.viewId, scanResults.columns);
-
-      // Send progress update - table created
-      sendResponse('scan-progress', { 
-        current: 75, 
-        total: 100, 
-        message: 'Data table created, populating with records...' 
-      });
-
-      // Note: For now, we're not implementing the actual data population
-      // as it would require re-scanning the files to get the actual data
-      // This would be implemented in a future iteration
-    }
-
-    // Send progress update - completed
-    sendResponse('scan-progress', { 
-      current: 100, 
-      total: 100, 
-      message: 'Scan completed successfully' 
-    });
-
-    // Send scan results
-    sendResponse('data-scanned', scanResults);
-
-  } catch (error) {
-    console.error('Failed to scan data:', error);
-    sendError('Failed to scan data', (error as Error).message);
-  }
-});
+// The scan-data handler has been removed as it's not being used anywhere in the codebase
+// All scanning is now handled by the scan-source-directories handler
 
 /**
  * Execute a query on view data

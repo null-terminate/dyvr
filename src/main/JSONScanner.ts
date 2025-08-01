@@ -79,7 +79,7 @@ export class JSONScanner {
   private errors: ScanError[] = [];
 
   /**
-   * Scan all JSON files in the provided source data folders
+   * Scan all JSON and JSONL files in the provided source data folders
    */
   async scanSourceFolders(sourceFolders: SourceFolder[]): Promise<ScanResults> {
     if (!sourceFolders || !Array.isArray(sourceFolders) || sourceFolders.length === 0) {
@@ -114,7 +114,7 @@ export class JSONScanner {
     // Parse all found JSON files
     for (const filePath of allJsonFiles) {
       try {
-        const jsonData = await this.parseJSONFile(filePath);
+        const jsonData = await this.parseFile(filePath);
         if (jsonData && Array.isArray(jsonData) && jsonData.length > 0) {
           // Add source file information to each record
           const dataWithSource = jsonData.map(record => ({
@@ -152,9 +152,9 @@ export class JSONScanner {
   }
 
   /**
-   * Recursively find all JSON files in a directory
+   * Recursively find all JSON and JSONL files in a directory
    */
-  private async findJsonFiles(dirPath: string): Promise<string[]> {
+  async findJsonFiles(dirPath: string): Promise<string[]> {
     const jsonFiles: string[] = [];
 
     const scanDirectory = async (currentPath: string): Promise<void> => {
@@ -171,8 +171,11 @@ export class JSONScanner {
               !['node_modules', 'dist', 'build', 'target'].includes(item.toLowerCase())) {
               await scanDirectory(itemPath);
             }
-          } else if (stats.isFile() && path.extname(item).toLowerCase() === '.json') {
-            jsonFiles.push(itemPath);
+          } else if (stats.isFile()) {
+            const ext = path.extname(item).toLowerCase();
+            if (ext === '.json' || ext === '.jsonl') {
+              jsonFiles.push(itemPath);
+            }
           }
         }
       } catch (error) {
@@ -188,13 +191,42 @@ export class JSONScanner {
   }
 
   /**
-   * Parse a JSON file and return its contents as an array
+   * Parse a file and return its contents as an array
+   * Supports different file formats based on extension
    */
-  async parseJSONFile(filePath: string): Promise<any[]> {
+  async parseFile(filePath: string): Promise<any[]> {
     try {
       if (!fs.existsSync(filePath)) {
         throw new Error('File does not exist');
       }
+
+      // Extract file extension
+      const extension = path.extname(filePath).toLowerCase();
+      
+      // Use switch statement to delegate to the appropriate parser based on extension
+      switch (extension) {
+        case '.jsonl':
+          return this.parseJsonLFile(filePath);
+        case '.json':
+          return this.parseJsonFile(filePath);
+        default:
+          throw new Error(`Unsupported file extension: ${extension}`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to parse file ${filePath}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Parse a JSON file and return its contents as an array
+   */
+  private async parseJsonFile(filePath: string): Promise<any[]> {
+    try {
+      if (!fs.existsSync(filePath)) {
+        throw new Error('File does not exist');
+      }
+
+      // No need to check file extension here as parseFile already handles routing
 
       const fileContent = fs.readFileSync(filePath, 'utf8');
 
@@ -239,6 +271,65 @@ export class JSONScanner {
       return validObjects;
     } catch (error) {
       throw new Error(`Failed to parse JSON file ${filePath}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Parse a JSONL file and return its contents as an array
+   * Each line in a JSONL file is a separate JSON object
+   */
+  private async parseJsonLFile(filePath: string): Promise<any[]> {
+    try {
+      if (!fs.existsSync(filePath)) {
+        throw new Error('File does not exist');
+      }
+
+      const readline = require('readline');
+      const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
+      const rl = readline.createInterface({
+        input: fileStream,
+        crlfDelay: Infinity
+      });
+
+      const validObjects: any[] = [];
+      let lineNumber = 0;
+
+      for await (const line of rl) {
+        lineNumber++;
+        
+        // Skip empty lines
+        if (!line.trim()) continue;
+        
+        try {
+          // Parse each line as a separate JSON object
+          const parsedData = JSON.parse(line);
+          
+          if (typeof parsedData === 'object' && parsedData !== null && !Array.isArray(parsedData)) {
+            // Flatten nested objects to some degree
+            const flattenedItem = this.flattenObject(parsedData);
+            validObjects.push(flattenedItem);
+          } else {
+            // Skip non-object items but don't fail the entire file
+            // Only log warning in non-test environments
+            if (process.env['NODE_ENV'] !== 'test') {
+              console.warn(`Skipping non-object item at line ${lineNumber} in file ${filePath}`);
+            }
+          }
+        } catch (parseError) {
+          // Log the error but continue processing other lines
+          if (process.env['NODE_ENV'] !== 'test') {
+            console.warn(`Error parsing line ${lineNumber} in JSONL file ${filePath}: ${(parseError as Error).message}`);
+          }
+        }
+      }
+
+      if (validObjects.length === 0) {
+        throw new Error('No valid JSON objects found in JSONL file');
+      }
+
+      return validObjects;
+    } catch (error) {
+      throw new Error(`Failed to parse JSONL file ${filePath}: ${(error as Error).message}`);
     }
   }
 
@@ -667,17 +758,180 @@ export class JSONScanner {
     if (progressCallback) {
       progressCallback({
         phase: 'scanning',
-        message: 'Starting JSON file scan...'
+        message: 'Starting JSON and JSONL file scan...'
       });
     }
 
-    // Scan source folders
-    const scanResults = await this.scanSourceFolders(sourceFolders);
-    scanResults.viewId = viewId; // Set the viewId
+    // First, count total files to provide better progress reporting
+    let totalFiles = 0;
+    for (const folder of sourceFolders) {
+      if (!folder || !folder.path) continue;
+      
+      try {
+        if (folder.path) {
+          const jsonFiles = await this.findJsonFiles(folder.path as string);
+          totalFiles += jsonFiles.length;
+          
+          // Report progress after counting files in each folder
+          if (progressCallback) {
+            progressCallback({
+              phase: 'scanning',
+              message: `Found ${totalFiles} JSON/JSONL files to process`,
+              totalRecords: totalFiles
+            });
+          }
+        }
+      } catch (error) {
+        console.warn(`Error counting files in ${folder.path || 'unknown path'}:`, error);
+      }
+    }
+
+    // If no files found, return early
+    if (totalFiles === 0) {
+      if (progressCallback) {
+        progressCallback({
+          phase: 'completed',
+          message: 'No JSON or JSONL files found',
+          totalRecords: 0
+        });
+      }
+      
+      return {
+        scanResults: {
+          viewId,
+          totalFiles: 0,
+          processedFiles: 0,
+          totalRecords: 0,
+          columns: [],
+          errors: [],
+          scanDate: new Date()
+        },
+        tableCreated: false,
+        populationResults: {
+          totalRecords: 0,
+          insertedRecords: 0,
+          batchCount: 0,
+          errors: []
+        }
+      };
+    }
+
+    // Process files with regular progress updates
+    let processedFiles = 0;
+    let allJsonData: any[] = [];
+    const errors: ScanError[] = [];
+
+    // Process each source folder
+    for (let i = 0; i < sourceFolders.length; i++) {
+      const folder = sourceFolders[i];
+      
+      if (!folder || !folder.path) {
+        console.warn(`Skipping undefined folder at index ${i}`);
+        continue;
+      }
+      
+      // Report progress for each folder
+      if (progressCallback) {
+        progressCallback({
+          phase: 'scanning',
+          message: `Scanning folder: ${folder.path || 'unknown path'}`,
+          processedRecords: processedFiles,
+          totalRecords: totalFiles
+        });
+      }
+
+      try {
+        if (!folder.path || !fs.existsSync(folder.path)) {
+          errors.push({
+            file: folder.path || 'unknown path',
+            error: 'Source folder does not exist or path is undefined'
+          });
+          continue;
+        }
+
+        // Find all JSON and JSONL files in the folder
+        const jsonFiles = await this.findJsonFiles(folder.path as string);
+        
+        // Process each file
+        for (let j = 0; j < jsonFiles.length; j++) {
+          const filePath = jsonFiles[j];
+          
+          // Report progress every few files to avoid flooding
+          if (progressCallback && (j % 5 === 0 || j === jsonFiles.length - 1)) {
+            const folderName = folder.path ? path.basename(folder.path) : 'unknown folder';
+            const fileName = path.basename(filePath as string);
+            progressCallback({
+              phase: 'scanning',
+              message: `Processing file ${j + 1}/${jsonFiles.length} in ${folderName}: ${fileName}`,
+              processedRecords: processedFiles,
+              totalRecords: totalFiles
+            });
+          }
+          
+          try {
+            const jsonData = await this.parseFile(filePath as string);
+            if (jsonData && Array.isArray(jsonData) && jsonData.length > 0) {
+              // Add source file information to each record
+              const dataWithSource = jsonData.map(record => ({
+                ...record,
+                _source_file: filePath
+              }));
+              allJsonData.push(...dataWithSource);
+            }
+            processedFiles++;
+            
+            // Yield to the event loop to prevent UI freezing
+            await new Promise(resolve => setTimeout(resolve, 0));
+          } catch (error) {
+            errors.push({
+              file: filePath || 'unknown file',
+              error: (error as Error).message
+            });
+            processedFiles++;
+          }
+        }
+      } catch (error) {
+        errors.push({
+          file: folder.path || 'unknown path',
+          error: `Failed to scan folder: ${(error as Error).message}`
+        });
+      }
+    }
+
+    // Analyze schema from all collected data
+    if (progressCallback) {
+      progressCallback({
+        phase: 'scanning',
+        message: `Analyzing schema for ${allJsonData.length} records...`,
+        processedRecords: processedFiles,
+        totalRecords: totalFiles
+      });
+    }
+    
+    const schema = this.analyzeSchema(allJsonData);
+    
+    // Create scan results
+    const scanResults: ScanResults = {
+      viewId,
+      totalFiles,
+      processedFiles,
+      totalRecords: allJsonData.length,
+      columns: schema,
+      errors: [...errors],
+      scanDate: new Date()
+    };
 
     if (scanResults.totalRecords === 0) {
+      if (progressCallback) {
+        progressCallback({
+          phase: 'completed',
+          message: 'Scan completed. No valid records found.',
+          scanResults
+        });
+      }
+      
       return {
-        scanResults: scanResults,
+        scanResults,
         tableCreated: false,
         populationResults: {
           totalRecords: 0,
@@ -692,7 +946,8 @@ export class JSONScanner {
     if (progressCallback) {
       progressCallback({
         phase: 'table_creation',
-        message: 'Creating data table...'
+        message: 'Creating data table...',
+        scanResults
       });
     }
 
@@ -704,35 +959,52 @@ export class JSONScanner {
       progressCallback({
         phase: 'population',
         message: 'Populating data table...',
-        totalRecords: scanResults.totalRecords
+        totalRecords: scanResults.totalRecords,
+        scanResults
       });
     }
 
-    // Get the data from scan results (we need to re-scan to get the actual data)
-    // Note: In the current implementation, we don't store the actual data in scanResults
-    // We would need to modify the scanSourceFolders method to return the data as well
-    // For now, let's create a simple population result
-    const populationResults: PopulationResults = {
-      totalRecords: scanResults.totalRecords,
-      insertedRecords: 0, // Would be populated by actual insertion
-      batchCount: 0,
-      errors: []
+    // Populate the data table with the collected data
+    const populationOptions = {
+      batchSize: options.batchSize || 1000,
+      progressCallback: (progress: PopulationProgress) => {
+        if (progressCallback) {
+          progressCallback({
+            phase: 'population',
+            message: `Inserting records (batch ${progress.currentBatch}/${progress.totalBatches})...`,
+            currentBatch: progress.currentBatch,
+            totalBatches: progress.totalBatches,
+            processedRecords: progress.processedRecords,
+            totalRecords: progress.totalRecords,
+            insertedRecords: progress.insertedRecords,
+            errors: progress.errors,
+            scanResults
+          });
+        }
+      }
     };
+
+    const populationResults = await this.populateDataTable(
+      databaseManager,
+      viewId,
+      allJsonData,
+      populationOptions
+    );
 
     // Report completion
     if (progressCallback) {
       progressCallback({
         phase: 'completed',
-        message: 'Scan and population completed',
-        scanResults: scanResults,
-        populationResults: populationResults
+        message: `Scan and population completed. Processed ${processedFiles} files and inserted ${populationResults.insertedRecords} records.`,
+        scanResults,
+        populationResults
       });
     }
 
     return {
-      scanResults: scanResults,
+      scanResults,
       tableCreated: true,
-      populationResults: populationResults
+      populationResults
     };
   }
 }

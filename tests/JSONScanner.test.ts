@@ -116,13 +116,13 @@ describe('JSONScanner', () => {
     });
   });
 
-  describe('parseJSONFile', () => {
+  describe('parseFile', () => {
     test('should parse valid JSON array', async () => {
       const testData = [{ id: 1, name: 'Test' }];
       const filePath = path.join(tempDir, 'test.json');
       fs.writeFileSync(filePath, JSON.stringify(testData));
 
-      const result = await scanner.parseJSONFile(filePath);
+      const result = await scanner.parseFile(filePath);
 
       expect(result).toEqual(testData);
     });
@@ -132,7 +132,7 @@ describe('JSONScanner', () => {
       const filePath = path.join(tempDir, 'test.json');
       fs.writeFileSync(filePath, JSON.stringify(testData));
 
-      const result = await scanner.parseJSONFile(filePath);
+      const result = await scanner.parseFile(filePath);
 
       expect(result).toEqual([testData]);
     });
@@ -140,28 +140,28 @@ describe('JSONScanner', () => {
     test('should throw error for non-existent file', async () => {
       const nonExistentPath = path.join(tempDir, 'non-existent.json');
       
-      await expect(scanner.parseJSONFile(nonExistentPath)).rejects.toThrow('File does not exist');
+      await expect(scanner.parseFile(nonExistentPath)).rejects.toThrow('File does not exist');
     });
 
     test('should throw error for empty file', async () => {
       const filePath = path.join(tempDir, 'empty.json');
       fs.writeFileSync(filePath, '');
 
-      await expect(scanner.parseJSONFile(filePath)).rejects.toThrow('File is empty');
+      await expect(scanner.parseFile(filePath)).rejects.toThrow('File is empty');
     });
 
     test('should throw error for invalid JSON', async () => {
       const filePath = path.join(tempDir, 'invalid.json');
       fs.writeFileSync(filePath, '{ invalid json }');
 
-      await expect(scanner.parseJSONFile(filePath)).rejects.toThrow('Invalid JSON format');
+      await expect(scanner.parseFile(filePath)).rejects.toThrow('Invalid JSON format');
     });
 
     test('should throw error for non-object JSON content', async () => {
       const filePath = path.join(tempDir, 'primitive.json');
       fs.writeFileSync(filePath, '"just a string"');
 
-      await expect(scanner.parseJSONFile(filePath)).rejects.toThrow('JSON content must be an object or array of objects');
+      await expect(scanner.parseFile(filePath)).rejects.toThrow('JSON content must be an object or array of objects');
     });
 
     test('should skip non-object items in array', async () => {
@@ -174,11 +174,72 @@ describe('JSONScanner', () => {
       const filePath = path.join(tempDir, 'mixed.json');
       fs.writeFileSync(filePath, JSON.stringify(testData));
 
-      const result = await scanner.parseJSONFile(filePath);
+      const result = await scanner.parseFile(filePath);
 
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({ id: 1, name: 'Valid' });
       expect(result[1]).toEqual({ id: 2, name: 'Also Valid' });
+    });
+
+    test('should throw error for unsupported file extension', async () => {
+      const filePath = path.join(tempDir, 'test.txt');
+      fs.writeFileSync(filePath, 'Not a JSON or JSONL file');
+
+      await expect(scanner.parseFile(filePath)).rejects.toThrow('Unsupported file extension: .txt');
+    });
+  });
+
+  describe('JSONL file handling', () => {
+    test('should parse valid JSONL file', async () => {
+      // Create a JSONL file with one object per line
+      const lines = [
+        JSON.stringify({ id: 1, name: 'John' }),
+        JSON.stringify({ id: 2, name: 'Jane' }),
+        JSON.stringify({ id: 3, name: 'Bob' })
+      ];
+      const filePath = path.join(tempDir, 'test.jsonl');
+      fs.writeFileSync(filePath, lines.join('\n'));
+
+      const result = await scanner.parseFile(filePath);
+
+      expect(result).toHaveLength(3);
+      expect(result[0]).toEqual({ id: 1, name: 'John' });
+      expect(result[1]).toEqual({ id: 2, name: 'Jane' });
+      expect(result[2]).toEqual({ id: 3, name: 'Bob' });
+    });
+
+    test('should skip invalid lines in JSONL file', async () => {
+      // Create a JSONL file with some invalid lines
+      const lines = [
+        JSON.stringify({ id: 1, name: 'John' }),
+        'invalid json',
+        JSON.stringify({ id: 3, name: 'Bob' })
+      ];
+      const filePath = path.join(tempDir, 'test.jsonl');
+      fs.writeFileSync(filePath, lines.join('\n'));
+
+      const result = await scanner.parseFile(filePath);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({ id: 1, name: 'John' });
+      expect(result[1]).toEqual({ id: 3, name: 'Bob' });
+    });
+
+    test('should handle empty lines in JSONL file', async () => {
+      // Create a JSONL file with empty lines
+      const lines = [
+        JSON.stringify({ id: 1, name: 'John' }),
+        '',
+        JSON.stringify({ id: 3, name: 'Bob' })
+      ];
+      const filePath = path.join(tempDir, 'test.jsonl');
+      fs.writeFileSync(filePath, lines.join('\n'));
+
+      const result = await scanner.parseFile(filePath);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({ id: 1, name: 'John' });
+      expect(result[1]).toEqual({ id: 3, name: 'Bob' });
     });
   });
 
