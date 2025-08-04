@@ -21,7 +21,7 @@ function createWindow(): void {
   console.log('Creating main window...');
   
   // Determine the correct path to the icon
-  const iconPath = path.resolve(__dirname, 'src/assets/Sandwich.png');
+  const iconPath = path.resolve(__dirname, 'src/assets/Scuba.png');
   console.log('Icon path:', iconPath);
   
   // Create a native image from the icon path
@@ -936,7 +936,7 @@ ipcMain.on('check-view-data', async (event, data: { projectId: string; viewId: s
 // Set the application icon as early as possible
 if (process.platform === 'darwin') {
   app.whenReady().then(() => {
-    const iconPath = path.resolve(__dirname, 'src/assets/Sandwich.png');
+    const iconPath = path.resolve(__dirname, 'src/assets/Scuba.png');
     const icon = nativeImage.createFromPath(iconPath);
     if (!icon.isEmpty()) {
       app.dock.setIcon(icon);

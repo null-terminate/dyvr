@@ -36,7 +36,7 @@
       "package.json",
       "src/assets/**/*"
     ],
-    "icon": "src/assets/Sandwich.png",
+    "icon": "src/assets/Scuba.png",
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
@@ -51,7 +51,7 @@
     },
     "dmg": {
       "title": "Dyvr",
-      "icon": "src/assets/Sandwich.png",
+      "icon": "src/assets/Scuba.png",
       "window": {
         "width": 540,
         "height": 380
