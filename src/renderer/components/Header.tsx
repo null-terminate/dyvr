@@ -8,7 +8,7 @@ const Header: React.FC = () => {
   return (
     <header className="header">
       <div>
-        <h1 className="logo">Digr</h1>
+        <h1 className="logo">dyvr</h1>
       </div>
       <div className="header-actions">
         <button 

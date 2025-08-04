@@ -1,5 +1,5 @@
 {
-  "name": "project-manager",
+  "name": "dyvr",
   "version": "1.0.0",
   "description": "A project management desktop application for organizing projects with source data folders",
   "main": "dist/main.js",
@@ -25,8 +25,8 @@
     "clean": "rm -rf dist"
   },
   "build": {
-    "appId": "com.yourcompany.project-manager",
-    "productName": "Project Manager",
+    "appId": "com.null-reference.dyvr",
+    "productName": "Dyvr",
     "directories": {
       "output": "build"
     },
@@ -50,7 +50,7 @@
       ]
     },
     "dmg": {
-      "title": "Project Manager",
+      "title": "Dyvr",
       "icon": "src/assets/Sandwich.png",
       "window": {
         "width": 540,
