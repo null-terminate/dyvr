@@ -7,8 +7,8 @@ const Header: React.FC = () => {
 
   return (
     <header className="header">
-      <div className="logo">
-        <h1 style={{ fontSize: '1.5rem', margin: '0' }}>Digr</h1>
+      <div>
+        <h1 className="logo">Digr</h1>
       </div>
       <div className="header-actions">
         <button 

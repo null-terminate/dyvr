@@ -4,6 +4,7 @@ import { useMainProcess } from '../context/MainProcessContext';
 import AddSourceDirectoryModal from '../components/AddSourceDirectoryModal';
 import RemoveProjectDialog from '../components/RemoveProjectDialog';
 import { Project, ScanStatus } from '../types/mainProcessTypes';
+import findIcon from '../../assets/Find.png';
 
 // Import ScanProgress interface
 interface ScanProgress {
@@ -324,7 +325,15 @@ const ProjectDetail: React.FC = () => {
                       onClick={() => handleRevealFolder(folder.path)}
                       className="reveal-button"
                     >
-                      Reveal
+                      {/* Reveal */}
+                      <img 
+                        src={findIcon} 
+                        alt="Reveal" 
+                        style={{ 
+                          width: '24px', 
+                          height: '24px',
+                        }} 
+                      />
                     </button>
                   </li>
                 ))}

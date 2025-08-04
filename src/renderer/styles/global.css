@@ -3,11 +3,16 @@
   box-sizing: border-box;
 }
 
+.sub-text {
+  font-size: 13px;
+  color: '#666'
+}
+
 body {
   margin: 0;
   padding: 0;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.4;
   color: #333;
   background-color: #f5f5f5;
@@ -54,6 +59,11 @@ body {
   overflow-y: auto;
 }
 
+.logo {
+  font-size: 1.5rem;
+  margin: 0px
+}
+
 .header {
   background-color: #660033;
   color: white;
@@ -65,11 +75,12 @@ body {
 }
 
 .footer {
-  background-color: #f0f0f0;
+  background-color: #270240;
   border-top: 1px solid #ddd;
   padding: 8px 20px;
-  font-size: 12px;
-  color: #666;
+  font-size: 1.1em;
+  font-weight: bold;
+  color: white;
 }
 
 button {
@@ -88,7 +99,7 @@ button:hover {
 }
 
 .reveal-button {
-  background-color: #4CAF50;  /* Green */
+  background-color: transparent;
   color: white;
   border: none;
   padding: 5px 10px;
@@ -97,7 +108,7 @@ button:hover {
 }
 
 .reveal-button:hover {
-  background-color: #388E3C;  /* Darker green */
+  background-color: #e1e1e1;  /* Darker green */
 }
 
 .delete-project-button {

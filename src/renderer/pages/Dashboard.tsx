@@ -102,7 +102,7 @@ const Dashboard: React.FC = () => {
               onClick={() => navigate(`/projects/${project.id}`)}
             >
               <div style={{ fontWeight: 'bold' }}>{project.name}</div>
-              <div style={{ fontSize: '12px', color: '#666' }}>
+              <div className="sub-text">
                 Last opened: {project.lastOpened.toLocaleDateString()}
               </div>
             </div>
