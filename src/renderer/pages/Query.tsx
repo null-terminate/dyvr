@@ -54,12 +54,7 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
       
       // Execute the SQL query using the API
       if (api) {
-        api.executeSqlQuery(projectId, sqlQuery, [], currentPage, rowsPerPage);
-      } else {
-        throw new Error('API not available');
-      }
-      
-      if (api) {
+        // Set up event listeners before executing the query
         // Listen for the query results
         const handleQueryResults = (queryResult: any) => {
           setResults({
@@ -72,13 +67,17 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
           // Remove the event listener after receiving the results
           if (api.removeAllListeners) {
             api.removeAllListeners('sql-query-results');
+            api.removeAllListeners('error'); // Also remove error listener
           }
         };
         
         // Listen for errors
         const handleError = (error: { message: string, details?: string }) => {
-          setError(`Error executing query: ${error.details || error.message}`);
+          const errorMessage = error.details || error.message;
+          console.error('Query error received:', errorMessage);
+          setError(`Error executing query: ${errorMessage}`);
           setIsExecuting(false);
+          setResults(null); // Clear any partial results
           
           // Remove the event listeners
           if (api.removeAllListeners) {
@@ -90,11 +89,18 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
         // Set up event listeners
         api.onSqlQueryResults(handleQueryResults);
         api.onError(handleError);
+        
+        // Execute the query after setting up listeners
+        api.executeSqlQuery(projectId, sqlQuery, [], currentPage, rowsPerPage);
+      } else {
+        throw new Error('API not available');
       }
-      
     } catch (err) {
-      setError(`Error executing query: ${err instanceof Error ? err.message : String(err)}`);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('Query execution error:', errorMessage);
+      setError(`Error executing query: ${errorMessage}`);
       setIsExecuting(false);
+      setResults(null); // Clear any partial results
     }
   };
 
@@ -105,9 +111,6 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
     if (api && sqlQuery.trim() && projectId) {
       // Show a subtle loading indicator without clearing results
       setIsExecuting(true);
-      
-      // Execute the query for the new page
-      api.executeSqlQuery(projectId, sqlQuery, [], newPage, rowsPerPage);
       
       // Set up event listeners for the new query
       const handleQueryResults = (queryResult: any) => {
@@ -121,11 +124,14 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
         // Remove the event listener after receiving the results
         if (api.removeAllListeners) {
           api.removeAllListeners('sql-query-results');
+          api.removeAllListeners('error'); // Also remove error listener
         }
       };
       
       const handleError = (error: { message: string, details?: string }) => {
-        setError(`Error executing query: ${error.details || error.message}`);
+        const errorMessage = error.details || error.message;
+        console.error('Page change query error:', errorMessage);
+        setError(`Error executing query: ${errorMessage}`);
         setIsExecuting(false);
         
         // Remove the event listeners
@@ -135,9 +141,12 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
         }
       };
       
-      // Set up event listeners
+      // Set up event listeners before executing the query
       api.onSqlQueryResults(handleQueryResults);
       api.onError(handleError);
+      
+      // Execute the query for the new page
+      api.executeSqlQuery(projectId, sqlQuery, [], newPage, rowsPerPage);
     }
   };
 
@@ -216,13 +225,28 @@ const Query: React.FC<QueryProps> = ({ projectId }) => {
       
       {error && (
         <div style={{ 
-          padding: '10px', 
+          padding: '15px', 
           backgroundColor: '#f8d7da', 
           color: '#721c24',
           borderRadius: '4px',
-          marginBottom: '20px'
+          marginBottom: '20px',
+          border: '1px solid #f5c6cb',
+          position: 'relative'
         }}>
-          {error}
+          <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Query Error</div>
+          <div style={{ 
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            maxHeight: '200px',
+            overflowY: 'auto',
+            fontFamily: 'monospace',
+            fontSize: '14px',
+            padding: '8px',
+            backgroundColor: 'rgba(0,0,0,0.05)',
+            borderRadius: '3px'
+          }}>
+            {error}
+          </div>
         </div>
       )}
       

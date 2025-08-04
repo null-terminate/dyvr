@@ -140,9 +140,16 @@ const ProjectDetail: React.FC = () => {
     });
     
     api.onError((error) => {
-      setIsLoading(false);
-      setProject(null); // Ensure project is null on error
-      setIsScanning(false);
+      // Only handle non-SQL query errors at this level
+      // SQL query errors should be handled by the Query component
+      if (!error.message.includes('SQL query') && !error.message.includes('executing query')) {
+        console.log('ProjectDetail handling error:', error.message);
+        setIsLoading(false);
+        setProject(null); // Ensure project is null on error
+        setIsScanning(false);
+      } else {
+        console.log('Ignoring SQL query error in ProjectDetail, will be handled by Query component:', error.message);
+      }
     });
     
     // Clean up event listeners

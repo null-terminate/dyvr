@@ -632,7 +632,17 @@ export class DatabaseManager {
       return new Promise((resolve, reject) => {
         this.db!.all(paginatedSql, params, (err, rows) => {
           if (err) {
-            reject(new Error(`Query execution failed: ${err.message}`));
+            // Create a more detailed error message
+            const errorMessage = `Query execution failed: ${err.message}`;
+            console.error(errorMessage);
+            
+            // Include the SQL that failed in the error
+            const error = new Error(errorMessage);
+            (error as any).sqlQuery = paginatedSql;
+            (error as any).params = params;
+            (error as any).sqliteError = err;
+            
+            reject(error);
             return;
           }
           
@@ -661,7 +671,30 @@ export class DatabaseManager {
         });
       });
     } catch (error) {
-      throw new Error(`SQL query execution failed: ${(error as Error).message}`);
+      // Create a more detailed error message
+      let errorMessage = `SQL query execution failed: ${(error as Error).message}`;
+      
+      // Add query information to the error
+      const enhancedError = new Error(errorMessage);
+      (enhancedError as any).sqlQuery = sql;
+      (enhancedError as any).params = params;
+      (enhancedError as any).originalError = error;
+      
+      // If the error already has SQL information, preserve it
+      if ((error as any).sqlQuery) {
+        (enhancedError as any).sqlQuery = (error as any).sqlQuery;
+      }
+      
+      // Add pagination information
+      (enhancedError as any).pagination = { page, pageSize };
+      
+      console.error('Enhanced SQL error:', {
+        message: errorMessage,
+        query: sql,
+        pagination: { page, pageSize }
+      });
+      
+      throw enhancedError;
     }
   }
 

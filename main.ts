@@ -851,7 +851,25 @@ ipcMain.on('execute-sql-query', async (event, data: { projectId: string; sql: st
 
   } catch (error) {
     console.error('Failed to execute SQL query:', error);
-    sendError('Failed to execute SQL query', (error as Error).message);
+    
+    // Extract more detailed error information
+    let errorDetails = (error as Error).message;
+    
+    // Check if the error has a cause or stack that might provide more context
+    if ((error as any).cause) {
+      errorDetails += `\n\nCause: ${(error as any).cause}`;
+    }
+    
+    // Include the SQL query in the error details to help with debugging
+    // But sanitize it first to remove any sensitive information
+    const sanitizedSql = data.sql
+      .replace(/password\s*=\s*['"].*?['"]/gi, "password='***'")
+      .replace(/secret\s*=\s*['"].*?['"]/gi, "secret='***'");
+    
+    errorDetails += `\n\nQuery: ${sanitizedSql}`;
+    
+    // Send the enhanced error details to the renderer
+    sendError('Failed to execute SQL query', errorDetails);
   }
 });
 
