@@ -173,7 +173,7 @@ export class JSONScanner {
             }
           } else if (stats.isFile()) {
             const ext = path.extname(item).toLowerCase();
-            if (ext === '.json' || ext === '.jsonl') {
+            if (ext === '.json' || ext === '.jsonl' || ext === '.jsonddb') {
               jsonFiles.push(itemPath);
             }
           }
@@ -209,6 +209,8 @@ export class JSONScanner {
           return this.parseJsonLFile(filePath);
         case '.json':
           return this.parseJsonFile(filePath);
+        case '.jsonddb':
+          return this.parseDynamoDBJsonFile(filePath);
         default:
           throw new Error(`Unsupported file extension: ${extension}`);
       }
@@ -331,6 +333,143 @@ export class JSONScanner {
     } catch (error) {
       throw new Error(`Failed to parse JSONL file ${filePath}: ${(error as Error).message}`);
     }
+  }
+
+  /**
+   * Parse a DynamoDB JSON file and return its contents as an array
+   * Each line in a DynamoDB JSON file is a separate JSON object with DynamoDB type annotations
+   */
+  private async parseDynamoDBJsonFile(filePath: string): Promise<any[]> {
+    try {
+      if (!fs.existsSync(filePath)) {
+        throw new Error('File does not exist');
+      }
+
+      const readline = require('readline');
+      const fileStream = fs.createReadStream(filePath, { encoding: 'utf8' });
+      const rl = readline.createInterface({
+        input: fileStream,
+        crlfDelay: Infinity
+      });
+
+      const validObjects: any[] = [];
+      let lineNumber = 0;
+
+      for await (const line of rl) {
+        lineNumber++;
+        
+        // Skip empty lines
+        if (!line.trim()) continue;
+        
+        try {
+          // Parse each line as a separate DynamoDB JSON object
+          const dynamoDBJson = JSON.parse(line);
+          
+          // Check if this is a valid DynamoDB item format
+          if (typeof dynamoDBJson === 'object' && dynamoDBJson !== null) {
+            let standardItem: any;
+            
+            // Handle the common DynamoDB export format where items are wrapped in an "Item" field
+            if (dynamoDBJson.hasOwnProperty('Item')) {
+              standardItem = this.convertDynamoDBToStandardJson(dynamoDBJson.Item);
+            } else {
+              // Try to convert directly if not in the "Item" wrapper format
+              standardItem = this.convertDynamoDBToStandardJson(dynamoDBJson);
+            }
+            
+            // Flatten nested objects to some degree
+            const flattenedItem = this.flattenObject(standardItem);
+            validObjects.push(flattenedItem);
+          } else {
+            // Skip non-object items but don't fail the entire file
+            // Only log warning in non-test environments
+            if (process.env['NODE_ENV'] !== 'test') {
+              console.warn(`Skipping non-object item at line ${lineNumber} in file ${filePath}`);
+            }
+          }
+        } catch (parseError) {
+          // Log the error but continue processing other lines
+          if (process.env['NODE_ENV'] !== 'test') {
+            console.warn(`Error parsing line ${lineNumber} in DynamoDB JSON file ${filePath}: ${(parseError as Error).message}`);
+          }
+        }
+      }
+
+      if (validObjects.length === 0) {
+        throw new Error('No valid JSON objects found in DynamoDB JSON file');
+      }
+
+      return validObjects;
+    } catch (error) {
+      throw new Error(`Failed to parse DynamoDB JSON file ${filePath}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Convert a DynamoDB formatted item to standard JSON format
+   * 
+   * @param dynamoDBItem Item in DynamoDB JSON format
+   * @returns Item in standard JSON format
+   */
+  private convertDynamoDBToStandardJson(dynamoDBItem: any): any {
+    if (!dynamoDBItem || typeof dynamoDBItem !== 'object') {
+      return dynamoDBItem;
+    }
+
+    const result: any = {};
+    
+    for (const key in dynamoDBItem) {
+      if (dynamoDBItem.hasOwnProperty(key)) {
+        const value = dynamoDBItem[key];
+        
+        // Handle different DynamoDB types
+        if (value.hasOwnProperty('S')) {  // String type
+          result[key] = value.S;
+        } else if (value.hasOwnProperty('N')) {  // Number type
+          // Convert to float or int as appropriate
+          const numStr = value.N;
+          result[key] = numStr.includes('.') ? parseFloat(numStr) : parseInt(numStr, 10);
+        } else if (value.hasOwnProperty('BOOL')) {  // Boolean type
+          result[key] = value.BOOL;
+        } else if (value.hasOwnProperty('NULL')) {  // Null type
+          result[key] = null;
+        } else if (value.hasOwnProperty('L')) {  // List type
+          result[key] = [];
+          for (const item of value.L) {
+            if (typeof item === 'object') {
+              if (item.hasOwnProperty('S')) {
+                result[key].push(item.S);
+              } else if (item.hasOwnProperty('N')) {
+                const numStr = item.N;
+                result[key].push(numStr.includes('.') ? parseFloat(numStr) : parseInt(numStr, 10));
+              } else if (item.hasOwnProperty('BOOL')) {
+                result[key].push(item.BOOL);
+              } else if (item.hasOwnProperty('M')) {
+                result[key].push(this.convertDynamoDBToStandardJson(item.M));
+              } else {
+                // For other types or complex nested structures
+                result[key].push(item);
+              }
+            } else {
+              result[key].push(item);
+            }
+          }
+        } else if (value.hasOwnProperty('M')) {  // Map type
+          result[key] = this.convertDynamoDBToStandardJson(value.M);
+        } else if (value.hasOwnProperty('SS')) {  // String Set type
+          result[key] = Array.from(value.SS);
+        } else if (value.hasOwnProperty('NS')) {  // Number Set type
+          result[key] = value.NS.map((n: string) => n.includes('.') ? parseFloat(n) : parseInt(n, 10));
+        } else if (value.hasOwnProperty('BS')) {  // Binary Set type
+          result[key] = Array.from(value.BS);
+        } else {
+          // For any unhandled types, keep as is
+          result[key] = value;
+        }
+      }
+    }
+    
+    return result;
   }
 
   /**
