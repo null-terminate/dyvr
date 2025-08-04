@@ -151,15 +151,22 @@ const ProjectList: React.FC = () => {
                     {project.created ? project.created.toLocaleDateString() : 'N/A'}
                   </td>
                   <td style={{ padding: '10px', borderBottom: '1px solid #ddd', textAlign: 'center' }}>
-                    <button className="trash-can"
+                    <button 
+                      className="delete-project-button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleRemoveProject({id: project.id, name: project.name});
                       }}
                       style={{
                         padding: '4px 8px',
-                        fontSize: '12px'
+                        fontSize: '12px',
+                        color: '#e53935',
+                        border: '1px solid #e53935',
+                        backgroundColor: 'transparent',
+                        cursor: 'pointer'
                       }}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#ffebee'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       title="Remove project"
                     >
                       Remove

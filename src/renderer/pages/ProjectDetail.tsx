@@ -96,6 +96,14 @@ const ProjectDetail: React.FC = () => {
       }
     });
     
+    // Listen for source folder removed events
+    api.onSourceFolderRemoved((data) => {
+      if (data.projectId === id) {
+        // Reload just this project
+        loadProject();
+      }
+    });
+    
     // Listen for scan started events
     api.onScanStarted((data) => {
       if (data.projectId === id) {
@@ -156,6 +164,7 @@ const ProjectDetail: React.FC = () => {
     return () => {
       if (api.removeAllListeners) {
         api.removeAllListeners('source-folder-added');
+        api.removeAllListeners('source-folder-removed');
         api.removeAllListeners('scan-started');
         api.removeAllListeners('scan-progress');
         api.removeAllListeners('scan-complete');
@@ -178,6 +187,13 @@ const ProjectDetail: React.FC = () => {
   const handleRevealFolder = (folderPath: string) => {
     if (api) {
       api.openFolder(folderPath);
+    }
+  };
+
+  const handleRemoveSourceFolder = (folderId: string) => {
+    if (api && project && id) {
+      api.removeSourceFolder(id, folderId);
+      // Project will be reloaded via the source-folder-removed event listener
     }
   };
 
@@ -328,20 +344,40 @@ const ProjectDetail: React.FC = () => {
                     }}
                   >
                     <span>{folder.path}</span>
-                    <button 
-                      onClick={() => handleRevealFolder(folder.path)}
-                      className="reveal-button"
-                    >
-                      {/* Reveal */}
-                      <img 
-                        src={findIcon} 
-                        alt="Reveal" 
-                        style={{ 
-                          width: '24px', 
-                          height: '24px',
-                        }} 
-                      />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <button 
+                        onClick={() => handleRemoveSourceFolder(folder.id)}
+                        className="delete-project-button"
+                        style={{
+                          marginRight: '10px',
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          color: '#e53935',
+                          border: '1px solid #e53935',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer'
+                        }}
+                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#ffebee'}
+                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        title="Remove source folder"
+                      >
+                        Remove
+                      </button>
+                      <button 
+                        onClick={() => handleRevealFolder(folder.path)}
+                        className="reveal-button"
+                      >
+                        {/* Reveal */}
+                        <img 
+                          src={findIcon} 
+                          alt="Reveal" 
+                          style={{ 
+                            width: '24px', 
+                            height: '24px',
+                          }} 
+                        />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
