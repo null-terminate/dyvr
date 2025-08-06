@@ -73,7 +73,7 @@ describe('DatabaseManager', () => {
       const digrPath = path.join(testWorkingDirectory, '.digr');
       expect(fs.existsSync(digrPath)).toBe(false);
       
-      const result = dbManager.ensureDigrFolder(testWorkingDirectory);
+      const result = dbManager.ensureProjectFolder(testWorkingDirectory);
       
       expect(result).toBe(true);
       expect(fs.existsSync(digrPath)).toBe(true);
@@ -84,7 +84,7 @@ describe('DatabaseManager', () => {
       const digrPath = path.join(testWorkingDirectory, '.digr');
       fs.mkdirSync(digrPath);
       
-      const result = dbManager.ensureDigrFolder(testWorkingDirectory);
+      const result = dbManager.ensureProjectFolder(testWorkingDirectory);
       
       expect(result).toBe(true);
       expect(fs.existsSync(digrPath)).toBe(true);

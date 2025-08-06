@@ -5,7 +5,7 @@ import { ProjectManager } from './src/main/ProjectManager';
 import { ViewManager } from './src/main/ViewManager';
 import { JSONScanner } from './src/main/JSONScanner';
 import { ConfigManager } from './src/main/ConfigManager';
-import { Project, View, ScanResults, QueryModel, QueryResult } from './src/types';
+import { Project, View, ScanResults, QueryModel, QueryResult, PROJECT_FOLDER, CONFIG_FILENAME } from './src/types';
 
 // Enable remote debugging for the main process
 app.commandLine.appendSwitch('remote-debugging-port', '9222');
@@ -92,7 +92,7 @@ async function initializeManagers(): Promise<void> {
     // Initialize JSONScanner
     jsonScanner = new JSONScanner();
 
-    // Load projects from digr.config
+    // Load projects from config file
     await loadProjectsFromDigrConfig();
 
     console.log('Application managers initialized successfully');
@@ -108,15 +108,15 @@ async function initializeManagers(): Promise<void> {
   }
 }
 
-/**
- * Initialize project databases for projects in digr.config
- */
+  /**
+   * Initialize project databases for projects in config file
+   */
 async function loadProjectsFromDigrConfig(): Promise<void> {
   try {
     // Projects are now loaded directly from digr.config via DataPersistence
     // We just need to ensure project databases are initialized
     const projects = await projectManager.getProjects();
-    console.log(`Loaded ${projects.length} projects from digr.config`);
+    console.log(`Loaded ${projects.length} projects from ${CONFIG_FILENAME}`);
     
     // Initialize project databases
     for (const project of projects) {
@@ -128,7 +128,7 @@ async function loadProjectsFromDigrConfig(): Promise<void> {
           fs.mkdirSync(projectPath, { recursive: true });
         }
         
-        // Ensure .digr folder exists
+        // Ensure project folder exists
         await projectManager.ensureProjectDigrFolder(projectPath);
         
         console.log(`Initialized project database for: ${project.name} at ${projectPath}`);
@@ -137,7 +137,7 @@ async function loadProjectsFromDigrConfig(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('Failed to load projects from digr.config:', error);
+    console.error(`Failed to load projects from ${CONFIG_FILENAME}:`, error);
   }
 }
 
@@ -229,10 +229,10 @@ ipcMain.on('create-project', async (event, data: { name: string; workingDirector
     const project = await projectManager.createProject(data.name, data.workingDirectory);
     console.log(`Main process: Project created successfully with ID "${project.id}" at path "${project.workingDirectory}"`);
     
-    // Also add to digr.config - use the project's actual working directory (which includes the project name subfolder)
-    console.log(`Main process: Adding project to digr.config with path "${project.workingDirectory}"`);
+    // Also add to config file - use the project's actual working directory (which includes the project name subfolder)
+    console.log(`Main process: Adding project to ${CONFIG_FILENAME} with path "${project.workingDirectory}"`);
     await configManager.addProject(project.workingDirectory);
-    console.log(`Main process: Project added to digr.config successfully`);
+    console.log(`Main process: Project added to ${CONFIG_FILENAME} successfully`);
     
     // Make sure the project is properly added to the registry before sending the event
     const updatedProject = await projectManager.getProject(project.id);
@@ -262,7 +262,7 @@ ipcMain.on('delete-project', async (event, projectId: string) => {
 
     await projectManager.deleteProject(projectId);
     
-    // Also remove from digr.config
+    // Also remove from config file
     await configManager.removeProject(project.workingDirectory);
     
     sendResponse('project-deleted', projectId);

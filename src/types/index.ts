@@ -1,5 +1,8 @@
 // Core data model interfaces for the project management application
 
+// Export constants
+export * from './constants';
+
 // Config interface for storing project paths in the user's home directory
 export interface Config {
   projects: {

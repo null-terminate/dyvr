@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Project, SourceFolder, Config } from '../types';
+import { Project, SourceFolder, Config, PROJECT_FOLDER, PROJECT_CONFIG_FILE } from '../types';
 import { ConfigManager } from './ConfigManager';
 import { DatabaseManager } from './DatabaseManager';
 
@@ -57,7 +57,7 @@ export class ProjectManager {
         } else {
           
           // Check if the project path has a .digr subfolder
-          const digrFolderPath = path.join(projectPath, '.digr');
+          const digrFolderPath = path.join(projectPath, PROJECT_FOLDER);
           if (!fs.existsSync(digrFolderPath)) {
             console.warn(`ProjectManager: Project path "${projectPath}" does not have a .digr subfolder`);
           } else {
@@ -307,7 +307,7 @@ export class ProjectManager {
       }
       
       // Create .digr subfolder in the project directory
-      const digrFolderPath = path.join(projectPath, '.digr');
+      const digrFolderPath = path.join(projectPath, PROJECT_FOLDER);
       if (!fs.existsSync(digrFolderPath)) {
         try {
           fs.mkdirSync(digrFolderPath, { recursive: true });
@@ -425,7 +425,7 @@ export class ProjectManager {
       await this.ensureProjectDigrFolder(project.workingDirectory);
       
       // Create project.json file path
-      const projectJsonPath = path.join(project.workingDirectory, '.digr', 'project.json');
+      const projectJsonPath = path.join(project.workingDirectory, PROJECT_FOLDER, PROJECT_CONFIG_FILE);
       
       // Create project data to save
       const projectData = {
@@ -451,7 +451,7 @@ export class ProjectManager {
   private async loadProjectJson(projectWorkingDirectory: string): Promise<Partial<Project> | null> {
     try {
       // Create project.json file path
-      const projectJsonPath = path.join(projectWorkingDirectory, '.digr', 'project.json');
+      const projectJsonPath = path.join(projectWorkingDirectory, PROJECT_FOLDER, PROJECT_CONFIG_FILE);
       
       // Check if project.json exists
       if (!fs.existsSync(projectJsonPath)) {
@@ -719,7 +719,7 @@ export class ProjectManager {
   }
 
   /**
-   * Ensure the .digr folder exists in the project's working directory
+   * Ensure the project folder exists in the project's working directory
    */
   async ensureProjectDigrFolder(workingDirectory: string): Promise<void> {
     if (!workingDirectory || typeof workingDirectory !== 'string') {
@@ -727,7 +727,7 @@ export class ProjectManager {
     }
 
     try {
-      const digrPath = path.join(workingDirectory, '.digr');
+      const digrPath = path.join(workingDirectory, PROJECT_FOLDER);
       
       if (!fs.existsSync(digrPath)) {
         fs.mkdirSync(digrPath, { recursive: true });
@@ -735,10 +735,10 @@ export class ProjectManager {
 
       // Verify the folder was created and is accessible
       if (!fs.existsSync(digrPath) || !fs.statSync(digrPath).isDirectory()) {
-        throw new Error('Failed to create or access .digr folder');
+        throw new Error(`Failed to create or access ${PROJECT_FOLDER} folder`);
       }
     } catch (error) {
-      throw new Error(`Failed to ensure .digr folder: ${(error as Error).message}`);
+      throw new Error(`Failed to ensure ${PROJECT_FOLDER} folder: ${(error as Error).message}`);
     }
   }
 

@@ -1,7 +1,7 @@
 import * as sqlite3 from 'sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ColumnSchema } from '../types';
+import { ColumnSchema, PROJECT_FOLDER, DATABASE_FILENAME } from '../types';
 
 interface DatabaseResult {
   lastID: number;
@@ -15,7 +15,7 @@ interface TransactionStatement {
 
 /**
  * DatabaseManager handles SQLite database operations for individual project databases.
- * Each project maintains its own SQLite database file located at {workingDirectory}/.digr/project.db
+ * Each project maintains its own SQLite database file located at {workingDirectory}/{PROJECT_FOLDER}/{DATABASE_FILENAME}
  * This provides project-level data isolation and portability.
  */
 export class DatabaseManager {
@@ -30,7 +30,7 @@ export class DatabaseManager {
 
   /**
    * Initialize the per-project database connection and create the database file if it doesn't exist
-   * Creates the .digr folder in the project's working directory if it doesn't exist
+   * Creates the project folder in the project's working directory if it doesn't exist
    */
   async initializeProjectDatabase(projectId: string, projectName: string, workingDirectory: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -45,11 +45,11 @@ export class DatabaseManager {
         const dbPath = this.getDatabasePath(workingDirectory);
         this.databasePath = dbPath;
 
-        // Ensure the .digr directory exists
-        const digrDir = this.ensureDigrFolder(workingDirectory);
+        // Ensure the project directory exists
+        const digrDir = this.ensureProjectFolder(workingDirectory);
         if (!digrDir) {
-          console.error(`DatabaseManager: Failed to create .digr folder at ${workingDirectory}`);
-          reject(new Error('Failed to create .digr folder'));
+          console.error(`DatabaseManager: Failed to create ${PROJECT_FOLDER} folder at ${workingDirectory}`);
+          reject(new Error(`Failed to create ${PROJECT_FOLDER} folder`));
           return;
         }
 
@@ -242,15 +242,15 @@ export class DatabaseManager {
       throw new Error('Working directory is required');
     }
 
-    return path.join(workingDirectory, '.digr', 'project.db');
+    return path.join(workingDirectory, PROJECT_FOLDER, DATABASE_FILENAME);
   }
 
   /**
-   * Ensure the .digr folder exists in the project's working directory
+   * Ensure the project folder exists in the project's working directory
    */
-  ensureDigrFolder(workingDirectory: string): boolean {
+  ensureProjectFolder(workingDirectory: string): boolean {
     try {
-      const digrPath = path.join(workingDirectory, '.digr');
+      const digrPath = path.join(workingDirectory, PROJECT_FOLDER);
       
       if (!fs.existsSync(digrPath)) {
         fs.mkdirSync(digrPath, { recursive: true });
@@ -261,7 +261,7 @@ export class DatabaseManager {
       const isDir = exists && fs.statSync(digrPath).isDirectory();
       return exists && isDir;
     } catch (error) {
-      console.error(`DatabaseManager: Failed to create .digr folder: ${(error as Error).message}`);
+      console.error(`DatabaseManager: Failed to create ${PROJECT_FOLDER} folder: ${(error as Error).message}`);
       return false;
     }
   }

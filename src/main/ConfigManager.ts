@@ -1,11 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { Config } from '../types';
+import { Config, CONFIG_FOLDER, CONFIG_FILENAME } from '../types';
 
 /**
- * ConfigManager handles reading and writing the digr.config file
- * in the .digr folder in the user's home directory.
+ * ConfigManager handles reading and writing the config file
+ * in the config folder in the user's home directory.
  */
 export class ConfigManager {
   private configPath: string;
@@ -20,18 +20,18 @@ export class ConfigManager {
       this.configPath = configPath;
     } else {
       const homeDir = os.homedir();
-      const digrDir = path.join(homeDir, '.digr');
-      this.configPath = path.join(digrDir, 'digr.config');
+      const digrDir = path.join(homeDir, CONFIG_FOLDER);
+      this.configPath = path.join(digrDir, CONFIG_FILENAME);
     }
   }
 
   /**
    * Initialize the ConfigManager
-   * Ensures the .digr directory and digr.config file exist
+   * Ensures the config directory and config file exist
    */
   async initialize(): Promise<void> {
     try {
-      await this.ensureDigrDirectory();
+      await this.ensureConfigDirectory();
       await this.ensureConfigFile();
       this.isInitialized = true;
     } catch (error) {
@@ -40,7 +40,7 @@ export class ConfigManager {
   }
 
   /**
-   * Get the digr.config file content
+   * Get the config file content
    */
   async getConfig(): Promise<Config> {
     this._validateInitialized();
@@ -51,19 +51,19 @@ export class ConfigManager {
       try {
         return JSON.parse(data) as Config;
       } catch (error) {
-        console.warn(`Invalid JSON in digr.config: ${(error as Error).message}`);
+        console.warn(`Invalid JSON in ${CONFIG_FILENAME}: ${(error as Error).message}`);
         return { projects: [] };
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return { projects: [] };
       }
-      throw new Error(`Failed to read digr.config: ${(error as Error).message}`);
+      throw new Error(`Failed to read ${CONFIG_FILENAME}: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Save the digr.config file content
+   * Save the config file content
    */
   async saveConfig(config: Config): Promise<void> {
     this._validateInitialized();
@@ -75,12 +75,12 @@ export class ConfigManager {
         'utf8'
       );
     } catch (error) {
-      throw new Error(`Failed to save digr.config: ${(error as Error).message}`);
+      throw new Error(`Failed to save ${CONFIG_FILENAME}: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Add a project to the digr.config file
+   * Add a project to the config file
    */
   async addProject(path: string): Promise<void> {
     this._validateInitialized();
@@ -106,12 +106,12 @@ export class ConfigManager {
 
       await this.saveConfig(config);
     } catch (error) {
-      throw new Error(`Failed to add project to digr.config: ${(error as Error).message}`);
+      throw new Error(`Failed to add project to ${CONFIG_FILENAME}: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Remove a project from the digr.config file
+   * Remove a project from the config file
    */
   async removeProject(path: string): Promise<void> {
     this._validateInitialized();
@@ -121,14 +121,14 @@ export class ConfigManager {
       config.projects = config.projects.filter((p: { path: string }) => p.path !== path);
       await this.saveConfig(config);
     } catch (error) {
-      throw new Error(`Failed to remove project from digr.config: ${(error as Error).message}`);
+      throw new Error(`Failed to remove project from ${CONFIG_FILENAME}: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Ensure the .digr directory exists in the user's home directory
+   * Ensure the config directory exists in the user's home directory
    */
-  private async ensureDigrDirectory(): Promise<void> {
+  private async ensureConfigDirectory(): Promise<void> {
     try {
       const digrDir = path.dirname(this.configPath);
       
@@ -136,12 +136,12 @@ export class ConfigManager {
         await fs.promises.mkdir(digrDir, { recursive: true });
       }
     } catch (error) {
-      throw new Error(`Failed to create .digr directory: ${(error as Error).message}`);
+      throw new Error(`Failed to create ${CONFIG_FOLDER} directory: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Ensure the digr.config file exists
+   * Ensure the config file exists
    */
   private async ensureConfigFile(): Promise<void> {
     try {
@@ -154,7 +154,7 @@ export class ConfigManager {
         );
       }
     } catch (error) {
-      throw new Error(`Failed to create digr.config file: ${(error as Error).message}`);
+      throw new Error(`Failed to create ${CONFIG_FILENAME} file: ${(error as Error).message}`);
     }
   }
 
@@ -177,7 +177,7 @@ export class ConfigManager {
       const emptyConfig: Config = { projects: [] };
       await this.saveConfig(emptyConfig);
     } catch (error) {
-      throw new Error(`Failed to reset digr.config: ${(error as Error).message}`);
+      throw new Error(`Failed to reset ${CONFIG_FILENAME}: ${(error as Error).message}`);
     }
   }
 }
