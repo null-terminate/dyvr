@@ -1,7 +1,7 @@
 // Core data model interfaces for the project management application
 
-// Digr config interface for storing project paths in the user's home directory
-export interface DigrConfig {
+// Config interface for storing project paths in the user's home directory
+export interface Config {
   projects: {
     path: string;
   }[];

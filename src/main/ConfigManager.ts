@@ -1,18 +1,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { DigrConfig } from '../types';
+import { Config } from '../types';
 
 /**
- * DigrConfigManager handles reading and writing the digr.config file
+ * ConfigManager handles reading and writing the digr.config file
  * in the .digr folder in the user's home directory.
  */
-export class DigrConfigManager {
+export class ConfigManager {
   private configPath: string;
   private isInitialized: boolean = false;
 
   /**
-   * Creates a new DigrConfigManager instance
+   * Creates a new ConfigManager instance
    * @param configPath Optional custom path for the config file (used for testing)
    */
   constructor(configPath?: string) {
@@ -26,7 +26,7 @@ export class DigrConfigManager {
   }
 
   /**
-   * Initialize the DigrConfigManager
+   * Initialize the ConfigManager
    * Ensures the .digr directory and digr.config file exist
    */
   async initialize(): Promise<void> {
@@ -35,21 +35,21 @@ export class DigrConfigManager {
       await this.ensureConfigFile();
       this.isInitialized = true;
     } catch (error) {
-      throw new Error(`Failed to initialize DigrConfigManager: ${(error as Error).message}`);
+      throw new Error(`Failed to initialize ConfigManager: ${(error as Error).message}`);
     }
   }
 
   /**
    * Get the digr.config file content
    */
-  async getConfig(): Promise<DigrConfig> {
+  async getConfig(): Promise<Config> {
     this._validateInitialized();
 
     try {
       const data = await fs.promises.readFile(this.configPath, 'utf8');
       
       try {
-        return JSON.parse(data) as DigrConfig;
+        return JSON.parse(data) as Config;
       } catch (error) {
         console.warn(`Invalid JSON in digr.config: ${(error as Error).message}`);
         return { projects: [] };
@@ -65,7 +65,7 @@ export class DigrConfigManager {
   /**
    * Save the digr.config file content
    */
-  async saveConfig(config: DigrConfig): Promise<void> {
+  async saveConfig(config: Config): Promise<void> {
     this._validateInitialized();
 
     try {
@@ -88,7 +88,7 @@ export class DigrConfigManager {
     try {
       // Verify the path exists
       if (!fs.existsSync(path)) {
-        console.warn(`DigrConfigManager: Path "${path}" does not exist, but adding to config anyway`);
+        console.warn(`ConfigManager: Path "${path}" does not exist, but adding to config anyway`);
       }
       
       const config = await this.getConfig();
@@ -146,7 +146,7 @@ export class DigrConfigManager {
   private async ensureConfigFile(): Promise<void> {
     try {
       if (!fs.existsSync(this.configPath)) {
-        const defaultConfig: DigrConfig = { projects: [] };
+        const defaultConfig: Config = { projects: [] };
         await fs.promises.writeFile(
           this.configPath,
           JSON.stringify(defaultConfig, null, 2),
@@ -159,11 +159,11 @@ export class DigrConfigManager {
   }
 
   /**
-   * Validate that the DigrConfigManager is initialized
+   * Validate that the ConfigManager is initialized
    */
   private _validateInitialized(): void {
     if (!this.isInitialized) {
-      throw new Error('DigrConfigManager not initialized. Call initialize() first.');
+      throw new Error('ConfigManager not initialized. Call initialize() first.');
     }
   }
   
@@ -174,7 +174,7 @@ export class DigrConfigManager {
     this._validateInitialized();
     
     try {
-      const emptyConfig: DigrConfig = { projects: [] };
+      const emptyConfig: Config = { projects: [] };
       await this.saveConfig(emptyConfig);
     } catch (error) {
       throw new Error(`Failed to reset digr.config: ${(error as Error).message}`);

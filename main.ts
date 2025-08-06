@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { ProjectManager } from './src/main/ProjectManager';
 import { ViewManager } from './src/main/ViewManager';
 import { JSONScanner } from './src/main/JSONScanner';
-import { DigrConfigManager } from './src/main/DigrConfigManager';
+import { ConfigManager } from './src/main/ConfigManager';
 import { Project, View, ScanResults, QueryModel, QueryResult } from './src/types';
 
 // Enable remote debugging for the main process
@@ -14,7 +14,7 @@ app.commandLine.appendSwitch('remote-debugging-port', '9222');
 let projectManager: ProjectManager;
 let viewManager: ViewManager;
 let jsonScanner: JSONScanner;
-let digrConfigManager: DigrConfigManager;
+let configManager: ConfigManager;
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow(): void {
@@ -77,9 +77,9 @@ function createWindow(): void {
  */
 async function initializeManagers(): Promise<void> {
   try {
-    // Initialize DigrConfigManager first
-    digrConfigManager = new DigrConfigManager();
-    await digrConfigManager.initialize();
+    // Initialize ConfigManager first
+    configManager = new ConfigManager();
+    await configManager.initialize();
     
     // Initialize ProjectManager
     projectManager = new ProjectManager();
@@ -231,7 +231,7 @@ ipcMain.on('create-project', async (event, data: { name: string; workingDirector
     
     // Also add to digr.config - use the project's actual working directory (which includes the project name subfolder)
     console.log(`Main process: Adding project to digr.config with path "${project.workingDirectory}"`);
-    await digrConfigManager.addProject(project.workingDirectory);
+    await configManager.addProject(project.workingDirectory);
     console.log(`Main process: Project added to digr.config successfully`);
     
     // Make sure the project is properly added to the registry before sending the event
@@ -263,7 +263,7 @@ ipcMain.on('delete-project', async (event, projectId: string) => {
     await projectManager.deleteProject(projectId);
     
     // Also remove from digr.config
-    await digrConfigManager.removeProject(project.workingDirectory);
+    await configManager.removeProject(project.workingDirectory);
     
     sendResponse('project-deleted', projectId);
   } catch (error) {

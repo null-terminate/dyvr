@@ -1,8 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Project, SourceFolder, DigrConfig } from '../types';
-import { DigrConfigManager } from './DigrConfigManager';
+import { Project, SourceFolder, Config } from '../types';
+import { ConfigManager } from './ConfigManager';
 import { DatabaseManager } from './DatabaseManager';
 
 /**
@@ -11,7 +11,7 @@ import { DatabaseManager } from './DatabaseManager';
  * while project-specific data is stored in per-project .digr databases.
  */
 export class ProjectManager {
-  private digrConfigManager: DigrConfigManager;
+  private configManager: ConfigManager;
   private isInitialized: boolean = false;
   private projectDatabases: Map<string, DatabaseManager> = new Map();
   private projectCache: Map<string, Project> = new Map();
@@ -21,7 +21,7 @@ export class ProjectManager {
    * @param configPath Optional custom path for the config file (used for testing)
    */
   constructor(configPath?: string) {
-    this.digrConfigManager = new DigrConfigManager(configPath);
+    this.configManager = new ConfigManager(configPath);
   }
 
   /**
@@ -30,7 +30,7 @@ export class ProjectManager {
    */
   async initialize(): Promise<void> {
     try {
-      await this.digrConfigManager.initialize();
+      await this.configManager.initialize();
       this.isInitialized = true;
     } catch (error) {
       throw new Error(`Failed to initialize ProjectManager: ${(error as Error).message}`);
@@ -44,7 +44,7 @@ export class ProjectManager {
     this._validateInitialized();
 
     try {
-      const config = await this.digrConfigManager.getConfig();
+      const config = await this.configManager.getConfig();
       
       const projects: Project[] = [];
       
@@ -117,7 +117,7 @@ export class ProjectManager {
 
     try {
       // Add to digr.config
-      await this.digrConfigManager.addProject(project.workingDirectory);
+      await this.configManager.addProject(project.workingDirectory);
       
       // Update cache
       this.projectCache.set(project.id, {
@@ -151,10 +151,10 @@ export class ProjectManager {
         }
         
         // Remove from digr.config
-        await this.digrConfigManager.removeProject(foundProject.workingDirectory);
+        await this.configManager.removeProject(foundProject.workingDirectory);
       } else {
         // Remove from digr.config
-        await this.digrConfigManager.removeProject(project.workingDirectory);
+        await this.configManager.removeProject(project.workingDirectory);
         
         // Remove from cache
         this.projectCache.delete(projectId);
@@ -190,8 +190,8 @@ export class ProjectManager {
       
       // If working directory changed, update digr.config
       if (updates.workingDirectory && updates.workingDirectory !== project.workingDirectory) {
-        await this.digrConfigManager.removeProject(project.workingDirectory);
-        await this.digrConfigManager.addProject(updates.workingDirectory);
+        await this.configManager.removeProject(project.workingDirectory);
+        await this.configManager.addProject(updates.workingDirectory);
       }
       
       // Update cache
