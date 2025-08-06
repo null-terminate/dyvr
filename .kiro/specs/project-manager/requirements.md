@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This document outlines the requirements for a project management Electron desktop application that enables users to create and manage projects with associated working directories and source data folders. The application provides a centralized way to organize project-related information and maintain references to external data sources, making it easier for users to manage multiple projects and their associated resources.
+This document outlines the requirements for DYVR, an Electron desktop application that enables users to create and manage projects with associated working directories and source data folders. The application provides a centralized way to organize project-related information, scan JSON data from external sources, and query that data, making it easier for users to manage multiple projects and their associated resources.
 
 ## Requirements
 
@@ -49,7 +49,7 @@ This document outlines the requirements for a project management Electron deskto
 
 #### Acceptance Criteria
 
-1. WHEN the user selects a project and clicks "Add Source Data Folder" THEN the system SHALL display a folder selection dialog
+1. WHEN the user selects a project and clicks "Add Source Directory" THEN the system SHALL display a folder selection dialog
 2. WHEN the user selects a valid folder THEN the system SHALL add the folder path to the project's source data folders list
 3. WHEN a source data folder is added THEN the system SHALL display it in the project's source data folders list
 4. IF the user selects an invalid or inaccessible folder THEN the system SHALL display an error message and not add the folder
@@ -81,75 +81,91 @@ This document outlines the requirements for a project management Electron deskto
 
 ### Requirement 7
 
-**User Story:** As a user, I want to create views within my projects, so that I can analyze and query the data in my source folders.
-
-#### Acceptance Criteria
-
-1. WHEN the user selects a project and clicks "Create View" THEN the system SHALL display a view creation form
-2. WHEN the user provides a view name THEN the system SHALL create a new view for the selected project
-3. WHEN a view is created THEN the system SHALL add it to the project's views list
-4. WHEN the user opens a view THEN the system SHALL display the view interface for data querying
-5. IF the user provides an invalid view name (empty or duplicate) THEN the system SHALL display an error message and prevent view creation
-
-### Requirement 8
-
 **User Story:** As a user, I want to scan JSON files in my project's source data folders, so that I can see all available data for querying.
 
 #### Acceptance Criteria
 
-1. WHEN a view is opened THEN the system SHALL scan all JSON files in the project's source data folders
+1. WHEN the user clicks "Scan" on a project with source data folders THEN the system SHALL scan all JSON files in the project's source data folders
 2. WHEN JSON files are scanned THEN the system SHALL parse each file as an array of JSON objects with flat properties
-3. WHEN JSON files are parsed THEN the system SHALL combine all data into a unified dataset for the view
+3. WHEN JSON files are parsed THEN the system SHALL combine all data into a unified dataset for the project
 4. IF a JSON file contains invalid JSON THEN the system SHALL log an error and skip that file
 5. IF a JSON file contains nested objects THEN the system SHALL flatten the properties or skip complex nested structures
-6. WHEN scanning is complete THEN the system SHALL display the total number of records found
+6. WHEN scanning is in progress THEN the system SHALL display a progress bar showing the current status
+7. WHEN scanning is complete THEN the system SHALL display the total number of files processed and records found
+
+### Requirement 8
+
+**User Story:** As a user, I want to execute SQL queries against the scanned JSON data in a dedicated Query tab, so that I can analyze and extract specific information while maintaining context of the current project.
+
+#### Acceptance Criteria
+
+1. WHEN the user selects a project and clicks on the Query tab THEN the system SHALL display a SQL query interface
+2. WHEN the user enters a SQL query and clicks "Execute" THEN the system SHALL execute the query against the scanned data
+3. WHEN a query is executed THEN the system SHALL display the results in a tabular format
+4. WHEN query results are displayed THEN the system SHALL show column headers and data rows
+5. WHEN query results contain many rows THEN the system SHALL provide pagination controls
+6. IF a query contains syntax errors THEN the system SHALL display an error message with details
+7. WHEN the user presses Ctrl+Enter or Cmd+Enter THEN the system SHALL execute the current query
+8. WHEN the user switches between tabs in the project detail view THEN the system SHALL preserve the query and results in the Query tab
 
 ### Requirement 9
 
-**User Story:** As a user, I want to view JSON data in a tabular format, so that I can easily browse and understand the data structure.
+**User Story:** As a user, I want to navigate through large query result sets, so that I can effectively analyze large amounts of data.
 
 #### Acceptance Criteria
 
-1. WHEN JSON data is loaded in a view THEN the system SHALL display the data in a table format
-2. WHEN the table is displayed THEN the system SHALL show column headers for all unique properties found in the JSON objects
-3. WHEN the table is displayed THEN the system SHALL show each JSON object as a row with property values in corresponding columns
-4. WHEN a property is missing from a JSON object THEN the system SHALL display an empty cell for that property
-5. WHEN the table contains many rows THEN the system SHALL provide pagination or scrolling to navigate through the data
-6. WHEN column headers are clicked THEN the system SHALL sort the data by that column
+1. WHEN query results are displayed THEN the system SHALL show the total number of records found
+2. WHEN query results exceed the page size THEN the system SHALL display pagination controls
+3. WHEN the user changes the page THEN the system SHALL update the display to show the selected page of results
+4. WHEN the user changes the rows per page setting THEN the system SHALL adjust the pagination accordingly
+5. WHEN navigating between pages THEN the system SHALL maintain the current query and other display settings
 
 ### Requirement 10
 
-**User Story:** As a user, I want to create queries to filter and search the JSON data, so that I can find specific information within my datasets.
+**User Story:** As a user, I want the application to persist my projects and their configurations, so that my work is saved between application sessions.
 
 #### Acceptance Criteria
 
-1. WHEN a view is open THEN the system SHALL provide a query interface for filtering data
-2. WHEN the user creates a query THEN the system SHALL allow filtering by any property found in the JSON objects
-3. WHEN the user applies a query THEN the system SHALL filter the displayed table to show only matching records
-4. WHEN a query is applied THEN the system SHALL update the record count to reflect filtered results
-5. WHEN the user clears a query THEN the system SHALL restore the full dataset view
-6. WHEN the user creates a query THEN the system SHALL support basic comparison operations (equals, contains, greater than, less than)
+1. WHEN the application starts THEN the system SHALL load all previously created projects
+2. WHEN a project, or its configuration is created, modified, or deleted THEN the system SHALL automatically save the changes
+3. WHEN the application is closed and reopened THEN the system SHALL restore all projects with their working directories and source data folders
+4. IF the application data becomes corrupted THEN the system SHALL display an error message and attempt to recover
+5. WHEN project data is saved THEN the system SHALL store it in a format that persists across application restarts
 
 ### Requirement 11
 
-**User Story:** As a user, I want to manage multiple views within a project, so that I can create different perspectives on my data.
+**User Story:** As a user, I want to see the progress of long-running operations like scanning, so that I know the system is working and how much longer to wait.
 
 #### Acceptance Criteria
 
-1. WHEN a project is selected THEN the system SHALL display a list of all views for that project
-2. WHEN the user clicks on a view name THEN the system SHALL open that view
-3. WHEN the user deletes a view THEN the system SHALL prompt for confirmation and remove the view if confirmed
-4. WHEN multiple views exist THEN the system SHALL allow opening one view at a time initially
-5. IF no views exist for a project THEN the system SHALL display a message prompting the user to create a view
+1. WHEN a scan operation is initiated THEN the system SHALL display a progress indicator
+2. WHEN a scan is in progress THEN the system SHALL update the progress indicator to show the current status
+3. WHEN a scan is in progress THEN the system SHALL display a message indicating what is currently being processed
+4. WHEN a scan completes THEN the system SHALL display a success message with summary information
+5. IF a scan encounters errors THEN the system SHALL display error information while continuing with the rest of the scan
 
 ### Requirement 12
 
-**User Story:** As a user, I want the application to persist my projects, views, and their configurations, so that my work is saved between application sessions.
+**User Story:** As a user, I want to work with different types of JSON file formats, so that I can analyze data from various sources.
 
 #### Acceptance Criteria
 
-1. WHEN the application starts THEN the system SHALL load all previously created projects and their views
-2. WHEN a project, view, or configuration is created, modified, or deleted THEN the system SHALL automatically save the changes
-3. WHEN the application is closed and reopened THEN the system SHALL restore all projects with their working directories, source data folders, and views
-4. IF the application data becomes corrupted THEN the system SHALL display an error message and attempt to recover or reset to a clean state
-5. WHEN project data is saved THEN the system SHALL store it in a format that persists across application restarts
+1. WHEN scanning source folders THEN the system SHALL support standard JSON files (.json extension)
+2. WHEN scanning source folders THEN the system SHALL support JSON Lines files (.jsonl extension)
+3. WHEN scanning source folders THEN the system SHALL support DynamoDB JSON export files (.jsonddb extension)
+4. WHEN parsing JSON files THEN the system SHALL handle both single objects and arrays of objects
+5. WHEN parsing JSON Lines files THEN the system SHALL treat each line as a separate JSON object
+6. WHEN parsing DynamoDB JSON files THEN the system SHALL convert DynamoDB-specific type annotations to standard JSON
+
+### Requirement 13
+
+**User Story:** As a user, I want to navigate between different aspects of my project through a tabbed interface, so that I can efficiently manage project details, source files, and data queries.
+
+#### Acceptance Criteria
+
+1. WHEN the user opens a project THEN the system SHALL display a tabbed interface with at least "Details", "Files", and "Query" tabs
+2. WHEN the user clicks on the "Details" tab THEN the system SHALL display the project's basic information and configuration
+3. WHEN the user clicks on the "Files" tab THEN the system SHALL display the project's source data folders and scanning options
+4. WHEN the user clicks on the "Query" tab THEN the system SHALL display the SQL query interface for the project
+5. WHEN the user switches between tabs THEN the system SHALL preserve the state and content of each tab
+6. WHEN the user performs actions in one tab THEN the system SHALL update relevant information in other tabs as needed

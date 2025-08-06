@@ -1,226 +1,230 @@
 # Implementation Plan
 
-- [x] 1. Set up TypeScript configuration and dependencies
-  - Install TypeScript and related dependencies (`npm install --save-dev typescript @types/node @types/electron ts-node`)
-  - Create tsconfig.json with strict type checking enabled
-  - Update package.json scripts to use TypeScript compilation
-  - Configure build process to compile TypeScript to JavaScript for Electron
+- [x] 1. Set up TypeScript and Electron project structure
+  - [x] Install TypeScript, Electron, React, and related dependencies
+  - [x] Create tsconfig.json with strict type checking enabled
+  - [x] Set up webpack configuration for bundling
+  - [x] Configure build process for main and renderer processes
+  - [x] Set up development environment with hot reloading
   - _Requirements: All requirements (TypeScript foundation)_
 
-- [x] 2. Convert existing JavaScript files to TypeScript
-  - Convert all existing .js files in src/main/ to .ts with proper type annotations
-  - Convert all test files to .ts with proper typing for Jest
-  - Update import/export statements to use TypeScript syntax
-  - Add type definitions for all interfaces and classes
-  - _Requirements: All requirements (TypeScript conversion)_
+- [x] 2. Implement core data management classes
+  - [x] 2.1 Create DatabaseManager class for SQLite operations
+    - [x] Implement database initialization and connection management
+    - [x] Create methods for executing SQL queries and transactions
+    - [x] Add schema creation and migration functionality
+    - [x] Implement error handling for database operations
+    - _Requirements: 10.1, 10.3, 10.4, 10.5_
 
-- [x] 3. Set up project structure and core dependencies
-  - Install SQLite3 dependency for Node.js (`npm install sqlite3`)
-  - Create directory structure for main process modules (`src/main/`)
-  - Create directory structure for renderer process modules (`src/renderer/`)
-  - Update package.json with new entry points and build configuration
-  - _Requirements: 7.1, 12.1_
+  - [x] 2.2 Create DigrConfigManager for global project registry
+    - [x] Implement methods to read/write digr.config file in user's home directory
+    - [x] Create functionality to add/remove projects from global registry
+    - [x] Add error handling for configuration file operations
+    - _Requirements: 10.1, 10.2, 10.3, 10.5_
 
-- [x] 2. Implement SQLite database foundation
-  - [x] 2.1 Create DatabaseManager class for per-project SQLite operations
-    - Implement per-project database initialization and connection management
-    - Create methods for opening, closing, and executing SQL queries on project databases
-    - Add error handling for database connection issues and .digr folder creation
-    - Write unit tests for database connection and basic operations
-    - _Requirements: 12.1, 12.4_
+  - [x] 2.3 Implement ProjectManager for project operations
+    - [x] Create project CRUD operations with validation
+    - [x] Implement source folder management functionality
+    - [x] Add methods for project persistence in .digr folder
+    - [x] Create error handling for project operations
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5_
 
-  - [x] 2.2 Implement per-project database schema creation
-    - Create SQL scripts for project_info, source_folders, and views tables in each project's database
-    - Implement schema migration and initialization in DatabaseManager for project databases
-    - Add methods for creating and validating per-project database schema
-    - Write unit tests for schema creation and validation in .digr folders
-    - _Requirements: 1.2, 4.2, 7.2, 12.1_
+- [x] 3. Implement JSON scanning and data processing
+  - [x] 3.1 Create JSONScanner class for file processing
+    - [x] Implement file discovery in source folders
+    - [x] Add support for different JSON file formats (JSON, JSONL, DynamoDB)
+    - [x] Create schema analysis for determining column types
+    - [x] Implement data flattening for nested objects
+    - [x] Add error handling for invalid JSON files
+    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6_
 
-- [x] 3. Implement core data persistence layer
-  - [x] 3.1 Create DataPersistence class for global project registry management
-    - Implement methods to save/load global project registry using JSON file
-    - Create application data directory management using userData folder
-    - Add data validation and error handling for registry operations
-    - Write unit tests for global registry persistence operations
-    - _Requirements: 12.2, 12.3, 12.5_
+  - [x] 3.2 Implement data population functionality
+    - [x] Create methods to populate SQLite tables with JSON data
+    - [x] Add progress tracking and reporting
+    - [x] Implement batch insertion for performance
+    - [x] Create error handling for data population
+    - _Requirements: 7.1, 7.2, 7.3, 7.6, 7.7, 11.1, 11.2, 11.3, 11.4, 11.5_
 
-  - [x] 3.2 Implement ProjectManager class with distributed database integration
-    - Create project CRUD operations using per-project .digr databases
-    - Implement source folder management within individual project databases
-    - Add project validation, duplicate name handling, and .digr folder creation
-    - Write unit tests for distributed project management operations
-    - _Requirements: 1.1, 1.2, 1.4, 1.5, 3.1, 3.2, 4.1, 4.4, 5.1_
-
-- [x] 4. Implement view management system
-  - [x] 4.1 Enhance DatabaseManager for dynamic table operations
-    - Extend existing dynamic table creation methods for view data
-    - Add data insertion methods for populating view tables with JSON data
-    - Implement query execution methods for view data tables
-    - Write unit tests for enhanced dynamic table operations
-    - _Requirements: 8.2, 8.3, 9.1, 9.2_
-
-  - [x] 4.2 Create ViewManager class with per-project database integration
-    - Create ViewManager class that uses per-project DatabaseManager for view CRUD operations
-    - Add view name validation and duplicate checking within individual project databases
-    - Implement view deletion with associated data table cleanup in project's .digr database
-    - Write unit tests for ViewManager operations with distributed databases
-    - _Requirements: 7.1, 7.2, 11.1, 11.3, 11.4_
-
-- [x] 5. Implement JSON scanning and schema analysis
-  - [x] 5.1 Create JSONScanner class for file processing
-    - Implement recursive file scanning in source data folders
-    - Add JSON file parsing with error handling for invalid files
-    - Create schema analysis to determine column types and structure
-    - Write unit tests for JSON scanning and parsing
-    - _Requirements: 8.1, 8.2, 8.4, 8.5_
-
-  - [x] 5.2 Implement data population and batch insertion
-    - Create methods to populate dynamic tables with JSON data in project's .digr database
-    - Implement batch insertion for performance with large datasets in per-project databases
-    - Add progress tracking and error reporting for scan operations
-    - Write unit tests for data population and error handling with distributed databases
-    - _Requirements: 8.2, 8.3, 8.6, 9.3_
-
-- [x] 6. Implement main process integration and IPC setup
-  - [x] 6.1 Update main.js with application managers and IPC handlers
-    - Initialize ProjectManager, ViewManager, and other core services in main process
-    - Implement IPC event handlers for project CRUD operations
-    - Add source folder management IPC handlers
-    - Create error handling and response formatting for IPC
-    - _Requirements: 1.1, 1.2, 1.4, 1.5, 3.1, 3.2, 4.1, 4.4, 5.1_
-
-  - [x] 6.2 Create IPC event handlers for view and data operations
-    - Implement handlers for view management operations
-    - Add data scanning and query execution IPC handlers
-    - Create progress reporting for long-running operations
-    - Write integration tests for view and data IPC communication
-    - _Requirements: 7.1, 7.2, 8.1, 8.6, 10.1, 10.3, 11.1, 11.3_
-
-- [x] 7. Implement basic renderer process UI framework
-  - [x] 7.1 Create UIManager class for screen navigation
-    - Implement screen state management and navigation
-    - Create breadcrumb navigation and back button functionality
-    - Add loading states and error message display
-    - Write unit tests for UI state management
-    - _Requirements: 2.1, 2.2, 6.1, 6.2, 11.1_
-
-  - [x] 7.2 Create IPC communication layer for renderer
-    - Implement IPC event sending and response handling
-    - Add promise-based wrappers for async IPC operations
-    - Create error handling and timeout management for IPC calls
-    - Write unit tests for renderer IPC communication
-    - _Requirements: 12.1, 12.2, 12.3_
-
-- [x] 8. Implement project management UI with left-hand sidebar
-  - [x] 8.1 Create main application layout with sidebar and content area
-    - Build HTML structure with left sidebar for project list and main content area
-    - Implement responsive CSS layout with fixed sidebar and scrollable content
-    - Add application header with title and main navigation elements
-    - Create consistent styling using system fonts and native appearance
-    - _Requirements: 2.1, 2.2, 2.4_
-
-  - [x] 8.2 Create project list sidebar with CRUD operations
-    - Build project list component in left sidebar with project names and icons
-    - Implement "Create Project" button and form modal with validation
-    - Add project selection highlighting and click-to-select functionality
-    - Create project context menu with delete option and confirmation dialog
-    - _Requirements: 1.1, 1.2, 1.4, 1.5, 1.6, 2.1, 2.2, 3.1, 3.3_
-
-- [x] 9. Implement project detail view in main content area
-  - [x] 9.1 Create project detail screen with source folder management
-    - Build HTML structure for project details display in main content area
-    - Show project name, working directory path, and creation date
-    - Implement source folder list with add/remove functionality
-    - Add folder picker dialog for adding source folders with validation
-    - Create "Open in Explorer" buttons for working directory and source folders
-    - _Requirements: 4.1, 4.2, 4.4, 4.5, 5.1, 5.4, 6.1, 6.3, 6.4, 6.5_
-
-  - [x] 9.2 Add view management section to project details
-    - Create views list section within project details
-    - Implement "Create View" button and form with validation
-    - Add view list with click-to-open functionality
-    - Create view deletion with confirmation dialog
-    - Show view creation date and last modified information
-    - _Requirements: 7.1, 7.2, 11.1, 11.2, 11.3, 11.5_
-
-- [ ] 10. Implement data view interface with basic table display
-  - [ ] 10.1 Create data scanning progress interface
-    - Build progress indicator UI for JSON file scanning
-    - Implement real-time progress updates via IPC
-    - Add scan results summary and error reporting
-    - Create cancel functionality for long-running scans
-    - _Requirements: 8.1, 8.6_
-
-  - [ ] 10.2 Create TableRenderer class for basic data display
-    - Build dynamic HTML table generation from scanned JSON data
-    - Implement basic column display with proper headers
-    - Add simple pagination controls and navigation
-    - Create responsive table design with horizontal scrolling
-    - _Requirements: 9.1, 9.2, 9.3, 9.6_
-
-- [ ] 11. Implement query system and SQL generation
-  - [ ] 11.1 Create QueryBuilder class for SQL generation
-    - Implement filter-to-SQL conversion for different operators
-    - Add support for sorting, pagination, and complex WHERE clauses
-    - Create query validation and SQL injection prevention
-    - Write unit tests for SQL query generation and validation
-    - _Requirements: 10.1, 10.2, 10.3, 10.6_
-
-  - [ ] 11.2 Integrate query execution with DatabaseManager
-    - Add methods to execute generated SQL queries safely
-    - Implement result formatting and pagination support
-    - Create query result caching for performance optimization
-    - Write unit tests for query execution and result handling
-    - _Requirements: 10.3, 10.4, 10.5_
-
-- [ ] 12. Implement advanced query UI and features
-  - [ ] 12.1 Create QueryBuilder UI for filtering data
-    - Build filter interface with dynamic column selection
-    - Implement operator selection (equals, contains, greater, less)
-    - Add filter value input with data type validation
-    - Create query preview and validation feedback
-    - _Requirements: 10.1, 10.2, 10.6_
-
-  - [ ] 12.2 Add advanced table features and optimization
-    - Integrate QueryBuilder with TableRenderer for filtered results
-    - Implement column sorting with visual indicators
-    - Add query history and saved query functionality
-    - Create export functionality for query results
-    - _Requirements: 10.3, 10.4, 10.5_
-
-  - [ ] 12.3 Add data type inference and column management
-    - Implement automatic data type detection during scanning
-    - Add column type display and manual type override options
-    - Create column visibility controls and custom column ordering
-    - Add search functionality within table data
-    - _Requirements: 8.2, 8.5, 9.2, 9.4_
-
-- [ ] 13. Implement error handling and user feedback
-  - [ ] 13.1 Create comprehensive error handling system
-    - Implement user-friendly error messages for all operations
-    - Add error recovery mechanisms and retry functionality
-    - Create error logging and debugging information display
-    - Add validation feedback for all user inputs
-    - _Requirements: 1.5, 1.6, 4.4, 8.4, 12.4_
-
-  - [ ] 13.2 Add application state persistence and recovery
-    - Implement automatic saving of application state
-    - Add recovery mechanisms for corrupted data
-    - Create backup and restore functionality for project data
-    - Add application settings and preferences management
-    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
-
-- [ ] 14. Final integration and testing
-  - [ ] 14.1 Integrate all components and test complete workflows
-    - Test complete user workflows from project creation to data querying
-    - Verify all IPC communication and error handling
-    - Test with various JSON file formats and edge cases
-    - Perform performance testing with large datasets
+- [x] 4. Set up main process and IPC communication
+  - [x] 4.1 Configure main process with managers
+    - [x] Initialize ProjectManager, DatabaseManager, and JSONScanner
+    - [x] Set up window creation and management
+    - [x] Implement application lifecycle management
     - _Requirements: All requirements_
 
-  - [ ] 14.2 Polish UI/UX and add final features
-    - Implement consistent styling and responsive design
-    - Add keyboard shortcuts and accessibility features
-    - Create application help documentation and tooltips
-    - Add final performance optimizations and code cleanup
-    - _Requirements: 2.5, 6.4, 6.5, 9.5_
+  - [x] 4.2 Implement IPC event handlers
+    - [x] Create handlers for project operations
+    - [x] Add handlers for source folder management
+    - [x] Implement handlers for JSON scanning
+    - [x] Create handlers for SQL query execution
+    - [x] Add error handling for IPC communication
+    - _Requirements: All requirements_
+
+- [x] 5. Set up React renderer process
+  - [x] 5.1 Configure React with TypeScript
+    - [x] Set up React components with TypeScript interfaces
+    - [x] Create routing configuration
+    - [x] Implement context providers for state management
+    - _Requirements: All requirements_
+
+  - [x] 5.2 Create MainProcessContext for IPC communication
+    - [x] Implement context provider for accessing main process API
+    - [x] Create hooks for using main process functionality
+    - [x] Add event listeners for main process events
+    - [x] Implement error handling for IPC communication
+    - _Requirements: All requirements_
+
+- [x] 6. Implement project management UI
+  - [x] 6.1 Create application layout components
+    - [x] Implement Header component
+    - [x] Create Sidebar component
+    - [x] Add Footer component
+    - [x] Implement main content area with routing
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+  - [x] 6.2 Create ProjectList component
+    - [x] Implement project list display with table
+    - [x] Add CreateProjectDialog component
+    - [x] Create RemoveProjectDialog component
+    - [x] Implement project navigation functionality
+    - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [x] 7. Implement project detail UI with tabbed interface
+  - [x] 7.1 Create ProjectDetail component with tabs
+    - [x] Implement Details tab for basic project information
+    - [x] Create Files tab for source folder management
+    - [x] Add Query tab for SQL query interface
+    - [x] Implement tab navigation and state preservation
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 13.1, 13.2, 13.3, 13.4, 13.5, 13.6_
+
+  - [x] 7.2 Implement source folder management UI
+    - [x] Create source folder list display
+    - [x] Add AddSourceDirectoryModal component
+    - [x] Implement folder removal functionality
+    - [x] Add folder reveal functionality
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5_
+
+  - [x] 7.3 Create scanning UI and progress tracking
+    - [x] Implement scan button and functionality
+    - [x] Create progress bar for scan operations
+    - [x] Add scan status and result display
+    - [x] Implement error handling for scan operations
+    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 11.1, 11.2, 11.3, 11.4, 11.5_
+
+- [x] 8. Implement SQL query interface
+  - [x] 8.1 Create Query component
+    - [x] Implement SQL query input textarea
+    - [x] Add execute button and keyboard shortcuts
+    - [x] Create loading indicator for query execution
+    - [x] Implement error display for query errors
+    - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8_
+
+  - [x] 8.2 Implement query results display
+    - [x] Create table display for query results
+    - [x] Implement pagination controls
+    - [x] Add rows per page selection
+    - [x] Create empty state for no results
+    - _Requirements: 8.3, 8.4, 8.5, 9.1, 9.2, 9.3, 9.4, 9.5_
+
+- [x] 9. Implement error handling and user feedback
+  - [x] 9.1 Create error handling for main process
+    - [x] Implement error logging and reporting
+    - [x] Add error recovery mechanisms
+    - [x] Create user-friendly error messages
+    - _Requirements: All requirements_
+
+  - [x] 9.2 Implement error handling for renderer process
+    - [x] Create error boundaries for React components
+    - [x] Add error display components
+    - [x] Implement form validation with error messages
+    - [x] Create loading states and indicators
+    - _Requirements: All requirements_
+
+- [x] 10. Implement data persistence and state management
+  - [x] 10.1 Create project persistence
+    - [x] Implement project saving to .digr folder
+    - [x] Add project loading from .digr folder
+    - [x] Create global registry management
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
+
+  - [x] 10.2 Implement application state persistence
+    - [x] Add state preservation between application sessions
+    - [x] Create automatic saving of project changes
+    - [x] Implement error recovery for corrupted data
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
+
+- [x] 11. Implement styling and UI polish
+  - [x] 11.1 Create consistent styling
+    - [x] Implement CSS styles for all components
+    - [x] Add responsive design for different screen sizes
+    - [x] Create consistent color scheme and typography
+    - _Requirements: All requirements_
+
+  - [x] 11.2 Add UI polish and enhancements
+    - [x] Implement hover effects and transitions
+    - [x] Add tooltips and helper text
+    - [x] Create consistent button and form styling
+    - [x] Implement loading and empty states
+    - _Requirements: All requirements_
+
+- [x] 12. Testing and quality assurance
+  - [x] 12.1 Implement unit tests
+    - [x] Create tests for main process components
+    - [x] Add tests for utility functions
+    - [x] Implement tests for data models
+    - _Requirements: All requirements_
+
+  - [x] 12.2 Create integration tests
+    - [x] Implement tests for IPC communication
+    - [x] Add tests for database operations
+    - [x] Create tests for file system operations
+    - _Requirements: All requirements_
+
+  - [x] 12.3 Perform end-to-end testing
+    - [x] Test complete user workflows
+    - [x] Verify application behavior with real data
+    - [x] Test error handling and recovery
+    - _Requirements: All requirements_
+
+- [x] 13. Documentation and final polish
+  - [x] 13.1 Create documentation
+    - [x] Write README with setup instructions
+    - [x] Add inline code documentation
+    - [x] Create user documentation
+    - _Requirements: All requirements_
+
+  - [x] 13.2 Final polish and optimization
+    - [x] Perform code cleanup and refactoring
+    - [x] Optimize performance for large datasets
+    - [x] Add final UI improvements
+    - _Requirements: All requirements_
+
+- [ ] **UI/UX Enhancements**
+  - [ ] Add dark mode theme support
+  - [ ] Implement keyboard shortcuts for common actions
+  - [ ] Add drag-and-drop for source folder management
+  - _Requirements: Enhanced user experience_
+
+- [ ] **Advanced Features**
+  - [ ] Add data visualization capabilities
+  - [ ] Implement real-time file watching for source folders
+  - [ ] Add collaborative features for shared projects
+  - _Requirements: Advanced functionality beyond current scope_
+
+- [ ] **Performance Optimization**
+  - [ ] Implement virtual scrolling for large query results
+  - [ ] Add database indexing for frequently queried columns
+  - [ ] Optimize memory usage for large JSON file processing
+  - _Requirements: Performance improvements beyond current scope_
+
+- [ ] **Advanced Query Features**
+  - [ ] Add query builder UI for non-SQL users
+  - [ ] Implement saved queries functionality
+  - [ ] Add query history and favorites
+  - _Requirements: Enhanced user experience features_
+
+- [ ] **Data Export/Import**
+  - [ ] Add CSV export functionality for query results
+  - [ ] Implement project backup and restore
+  - [ ] Add data import from other formats (CSV, XML)
+  - _Requirements: Data portability features_

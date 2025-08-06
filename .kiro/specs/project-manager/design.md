@@ -2,11 +2,15 @@
 
 ## Overview
 
-This design document outlines the architecture for a project management Electron desktop application that enables users to create and manage projects with associated working directories, source data folders, and data views. The application follows Electron's main/renderer process architecture and provides a tabular interface for querying JSON data files.
+This design document outlines the architecture for DYVR, a TypeScript React-based Electron desktop application that enables users to create and manage projects with associated working directories and source data folders. The application provides functionality for scanning JSON data files from these folders and executing SQL queries against the data.
 
-The application is designed as a single-window desktop application with multiple screens for project management, view creation, and data analysis. Each project maintains its own local SQLite database within a `.digr` folder in the project's working directory, providing project-level data isolation and portability.
+The application is designed as a single-window desktop application with multiple screens for project management, source folder management, and data querying. Each project maintains its own local SQLite database within a `.digr` folder in the project's working directory, providing project-level data isolation and portability. Additionally, a global configuration file tracks all projects across the system.
 
-**Technology Stack**: The application is built using TypeScript for enhanced type safety, better IDE support, and improved maintainability. All main process and renderer process code uses TypeScript with strict type checking enabled.
+**Technology Stack**: 
+- **TypeScript**: Used throughout the entire application (both main and renderer processes) for enhanced type safety, better IDE support, and improved maintainability
+- **React**: Powers the user interface components in the renderer process
+- **Electron**: Provides the cross-platform desktop framework with its main/renderer process architecture
+- **SQLite**: Used for local data storage, with a distributed database approach where each project maintains its own database file
 
 ## Architecture
 
@@ -14,16 +18,16 @@ The application is designed as a single-window desktop application with multiple
 
 The application follows Electron's standard two-process architecture:
 
-**Main Process (`main.js`)**
+**Main Process**
 - Application lifecycle management
 - Window creation and management
 - File system operations (project creation, JSON scanning, .digr folder management)
 - SQLite database management and operations (per-project databases)
-- Application metadata persistence to project-local .digr folders
+- Application metadata persistence (global registry and per-project data)
 - IPC communication with renderer process
 
-**Renderer Process (`index.html` + associated scripts)**
-- User interface rendering
+**Renderer Process**
+- User interface rendering using React
 - User interaction handling
 - Data visualization (tables, forms)
 - Query interface for data filtering
@@ -31,19 +35,21 @@ The application follows Electron's standard two-process architecture:
 
 ### Application States
 
-The application has four primary states/screens:
+The application has several primary screens/states:
 
 1. **Project List Screen** - Shows all projects, allows creation/deletion
-2. **Project Detail Screen** - Shows project info, source folders, and views
-3. **View List Screen** - Shows views for a project, allows view management
-4. **Data View Screen** - Shows tabular data with query interface
+2. **Project Detail Screen** - Shows project info with tabbed interface:
+   - **Details Tab** - Basic project information
+   - **Files Tab** - Source folder management and scanning
+   - **Query Tab** - SQL query interface for data analysis
+3. **Settings Screen** - Application configuration
 
 ### Data Flow
 
 ```
-User Action → Renderer Process → IPC → Main Process → SQLite Database
+User Action → Renderer Process → IPC → Main Process → File System/SQLite Database
                      ↓
-SQLite Database → Main Process → IPC → Renderer Process → UI Update
+File System/SQLite Database → Main Process → IPC → Renderer Process → UI Update
 ```
 
 **Data Scanning Flow:**
@@ -53,7 +59,7 @@ JSON Files → JSONScanner → Schema Analysis → DatabaseManager → SQLite Ta
 
 **Query Flow:**
 ```
-User Query → QueryBuilder → SQL Generation → DatabaseManager → SQLite Execution → Results → TableRenderer
+User SQL Query → Main Process → DatabaseManager → SQLite Execution → Results → Renderer Process → Table Display
 ```
 
 ## Components and Interfaces
@@ -61,14 +67,22 @@ User Query → QueryBuilder → SQL Generation → DatabaseManager → SQLite Ex
 ### Main Process Components
 
 #### ProjectManager
-Handles project CRUD operations and persistence across global registry and per-project databases.
+Handles project CRUD operations and persistence across global registry and per-project databases. Uses a distributed approach where project metadata is stored in a global registry, while project-specific data is stored in per-project .digr databases.
 
 ```typescript
 class ProjectManager {
+  initialize(): Promise<void>
+  loadProjectRegistry(): Promise<Project[]>
+  addProjectToRegistry(project: Project): Promise<void>
+  removeProjectFromRegistry(projectId: string): Promise<void>
+  updateProjectInRegistry(projectId: string, updates: Partial<Project>): Promise<Project>
+  projectNameExists(projectName: string, excludeProjectId?: string): Promise<boolean>
   createProject(name: string, workingDirectory: string): Promise<Project>
-  deleteProject(projectId: string): Promise<void>
-  getProjects(): Promise<Project[]>
   getProject(projectId: string): Promise<Project | null>
+  getProjects(): Promise<Project[]>
+  deleteProject(projectId: string): Promise<void>
+  saveProjectJson(project: Project): Promise<void>
+  loadProjectJson(projectWorkingDirectory: string): Promise<Partial<Project> | null>
   addSourceFolder(projectId: string, folderPath: string): Promise<void>
   removeSourceFolder(projectId: string, folderPath: string): Promise<void>
   getSourceFolders(projectId: string): Promise<SourceFolder[]>
@@ -76,107 +90,242 @@ class ProjectManager {
   openProjectDatabase(projectId: string): Promise<DatabaseManager>
   closeProjectDatabase(projectId: string): Promise<void>
   ensureProjectDigrFolder(workingDirectory: string): Promise<void>
+  ensureProjectDatabase(projectId: string, project: Project): Promise<void>
+  close(): Promise<void>
+}
+```
+
+#### DigrConfigManager
+Handles reading and writing the digr.config file in the .digr folder in the user's home directory, which serves as the global registry of projects.
+
+```typescript
+class DigrConfigManager {
+  initialize(): Promise<void>
+  getConfig(): Promise<DigrConfig>
+  saveConfig(config: DigrConfig): Promise<void>
+  addProject(path: string): Promise<void>
+  removeProject(path: string): Promise<void>
+  ensureDigrDirectory(): Promise<void>
+  ensureConfigFile(): Promise<void>
+  resetConfig(): Promise<void>
 }
 ```
 
 #### ViewManager
-Manages views within projects.
+Handles view CRUD operations with per-project database integration. Each project maintains its own SQLite database with views stored in the project's .digr folder.
 
 ```typescript
 class ViewManager {
-  createView(projectId: string, viewName: string): Promise<View>
-  deleteView(projectId: string, viewId: string): Promise<void>
+  initialize(): Promise<void>
+  createView(projectWorkingDirectory: string, viewName: string): Promise<View>
+  createViewInProject(projectWorkingDirectory: string, viewName: string): Promise<View>
+  getView(projectWorkingDirectory: string, viewId: string): Promise<View | null>
   getViews(projectId: string): Promise<View[]>
+  getViewsForProject(projectWorkingDirectory: string): Promise<View[]>
+  updateView(projectWorkingDirectory: string, viewId: string, updates: ViewUpdateData): Promise<View>
+  deleteView(projectWorkingDirectory: string, viewId: string): Promise<boolean>
+  deleteViewInProject(projectWorkingDirectory: string, viewId: string): Promise<boolean>
+  viewNameExists(projectWorkingDirectory: string, viewName: string, excludeViewId?: string): Promise<boolean>
+  isViewNameAvailable(projectWorkingDirectory: string, viewName: string, excludeViewId?: string): Promise<boolean>
+  getViewDataSchema(projectWorkingDirectory: string, viewId: string): Promise<any[]>
+  viewHasDataTable(projectWorkingDirectory: string, viewId: string): Promise<boolean>
   saveViews(): Promise<void>
   loadViews(): Promise<void>
+  closeProjectDatabase(projectWorkingDirectory: string): Promise<void>
+  close(): Promise<void>
 }
 ```
 
 #### JSONScanner
-Scans and parses JSON files from source data folders, analyzes schema, and populates SQLite database.
+Handles scanning and parsing JSON files from source data folders, analyzing their schema, and preparing data for database insertion.
 
 ```typescript
 class JSONScanner {
   scanSourceFolders(sourceFolders: SourceFolder[]): Promise<ScanResults>
-  parseJSONFile(filePath: string): Promise<any[]>
-  analyzeSchema(jsonDataArrays: any[][]): ColumnSchema[]
-  createDataTable(viewId: string, columns: ColumnSchema[]): Promise<void>
-  populateDataTable(viewId: string, records: any[]): Promise<void>
+  findJsonFiles(dirPath: string): Promise<string[]>
+  parseFile(filePath: string): Promise<any[]>
+  parseJsonFile(filePath: string): Promise<any[]>
+  parseJsonLFile(filePath: string): Promise<any[]>
+  parseDynamoDBJsonFile(filePath: string): Promise<any[]>
+  convertDynamoDBToStandardJson(dynamoDBItem: any): any
+  flattenObject(obj: any, prefix?: string, maxDepth?: number, currentDepth?: number): any
+  analyzeSchema(jsonDataArray: any[]): ScanColumn[]
+  inferDataType(value: any): string
+  determineSQLType(types: Set<string>): 'TEXT' | 'INTEGER' | 'REAL'
   getUniqueColumns(combinedData: any[]): string[]
+  getLastScanResults(): ScanResults | null
+  clearResults(): void
+  getErrors(): ScanError[]
+  hasErrors(): boolean
+  createDataTable(databaseManager: DatabaseManager, viewId: string, columns: ScanColumn[]): Promise<void>
+  populateDataTable(databaseManager: DatabaseManager, viewId: string, records: any[], options?: PopulationOptions): Promise<PopulationResults>
+  scanAndPopulate(sourceFolders: SourceFolder[], databaseManager: DatabaseManager, viewId: string, options?: ScanAndPopulateOptions): Promise<ScanAndPopulateResult>
 }
 ```
 
 #### DatabaseManager
-Manages SQLite database operations for individual project databases.
+Handles SQLite database operations for individual project databases. Each project maintains its own SQLite database file located at {workingDirectory}/.digr/project.db.
 
 ```typescript
 class DatabaseManager {
-  constructor(projectWorkingDirectory: string)
   initializeProjectDatabase(projectId: string, projectName: string, workingDirectory: string): Promise<void>
   openProjectDatabase(projectWorkingDirectory: string): Promise<void>
   closeProjectDatabase(): Promise<void>
+  createProjectSchema(projectId: string, projectName: string, workingDirectory: string): Promise<void>
+  migrateSchema(): Promise<void>
+  getSchemaVersion(): Promise<number>
+  setSchemaVersion(version: number): Promise<void>
+  getDatabasePath(workingDirectory?: string): string
+  ensureDigrFolder(workingDirectory: string): boolean
+  executeQuery(sql: string, params?: any[]): Promise<any[]>
+  executeNonQuery(sql: string, params?: any[]): Promise<DatabaseResult>
+  executeTransaction(statements: TransactionStatement[]): Promise<DatabaseResult[]>
+  isConnected(): boolean
+  initializeSchema(): Promise<void>
+  validateSchema(): Promise<boolean>
   createDataTable(viewId: string, columns: ColumnSchema[]): Promise<void>
-  insertRecords(viewId: string, records: any[]): Promise<void>
-  executeQuery(viewId: string, sqlQuery: string): Promise<QueryResult>
   dropDataTable(viewId: string): Promise<void>
-  getTableSchema(viewId: string): Promise<ColumnSchema[]>
-  ensureDigrFolder(workingDirectory: string): Promise<void>
-  getDatabasePath(workingDirectory: string): string
-}
-```
-
-#### DataPersistence
-Handles saving/loading global application metadata and manages project registry.
-
-```typescript
-class DataPersistence {
-  saveProjectRegistry(projects: Project[]): Promise<void>
-  loadProjectRegistry(): Promise<Project[]>
-  getProjectRegistryPath(): string
-  ensureApplicationDataDirectory(): Promise<void>
-  addProjectToRegistry(project: Project): Promise<void>
-  removeProjectFromRegistry(projectId: string): Promise<void>
-  updateProjectInRegistry(projectId: string, updates: Partial<Project>): Promise<void>
+  getDataTableSchema(viewId: string): Promise<any[]>
+  dataTableExists(viewId: string): Promise<boolean>
+  executeSqlQuery(sql: string, params?: any[], page?: number, pageSize?: number): Promise<{ columns: string[], rows: any[][], totalRows: number }>
+  closeDatabase(): Promise<void>
 }
 ```
 
 ### Renderer Process Components
 
-#### UIManager
-Manages screen transitions and UI state.
+The renderer process is implemented using TypeScript and React, with all components defined as TypeScript React functional components.
+
+#### App
+The main React component that sets up the routing and overall application structure.
 
 ```typescript
-class UIManager {
-  showProjectList(): void
-  showProjectDetail(projectId: string): void
-  showViewList(projectId: string): void
-  showDataView(projectId: string, viewId: string): void
-  updateBreadcrumb(path: string[]): void
+const App: React.FC = () => {
+  // Renders Header, Sidebar, content area with routes, and Footer
 }
 ```
 
-#### TableRenderer
-Renders JSON data in tabular format with sorting.
+#### Header
+Renders the application header with navigation controls.
 
 ```typescript
-class TableRenderer {
-  renderTable(data: any[], properties: string[]): void
-  sortByColumn(columnName: string, direction: 'ASC' | 'DESC'): void
-  updatePagination(currentPage: number, totalPages: number): void
-  handleCellClick(row: number, column: string): void
+const Header: React.FC = () => {
+  // Renders application header
 }
 ```
 
-#### QueryBuilder
-Provides interface for building SQL queries from user input.
+#### Sidebar
+Renders the application sidebar with navigation links.
 
 ```typescript
-class QueryBuilder {
-  buildSQLQuery(filters: QueryFilter[], sortBy?: string, sortDirection?: 'ASC' | 'DESC'): string
-  generateWhereClause(filters: QueryFilter[]): string
-  generateOrderByClause(sortBy: string, sortDirection: 'ASC' | 'DESC'): string
-  validateQuery(query: QueryModel): boolean
-  getSupportedOperators(): QueryOperator[]
+const Sidebar: React.FC = () => {
+  // Renders sidebar navigation
+}
+```
+
+#### Footer
+Renders the application footer.
+
+```typescript
+const Footer: React.FC = () => {
+  // Renders application footer
+}
+```
+
+#### Dashboard
+Renders the application dashboard.
+
+```typescript
+const Dashboard: React.FC = () => {
+  // Renders dashboard content
+}
+```
+
+#### ProjectList
+Renders the list of projects and handles project creation and deletion.
+
+```typescript
+const ProjectList: React.FC = () => {
+  // State management for projects, loading state, and dialogs
+  // Handles project creation and deletion
+  // Renders project list table
+}
+```
+
+#### ProjectDetail
+Renders the details of a project with a tabbed interface for details, files, and query.
+
+```typescript
+const ProjectDetail: React.FC = () => {
+  // State management for project, loading state, active tab
+  // Handles source folder management and scanning
+  // Renders tabbed interface with details, files, and query tabs
+}
+```
+
+#### Query
+Renders the SQL query interface and results.
+
+```typescript
+const Query: React.FC<QueryProps> = ({ projectId }) => {
+  // State management for SQL query, execution state, results
+  // Handles query execution and pagination
+  // Renders query interface and results table
+}
+```
+
+#### Settings
+Renders the application settings.
+
+```typescript
+const Settings: React.FC = () => {
+  // Renders settings interface
+}
+```
+
+#### CreateProjectDialog
+Dialog for creating a new project.
+
+```typescript
+const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen, onClose, onSubmit }) => {
+  // State management for project name and working directory
+  // Handles form submission
+  // Renders dialog with form fields
+}
+```
+
+#### RemoveProjectDialog
+Dialog for confirming project deletion.
+
+```typescript
+const RemoveProjectDialog: React.FC<RemoveProjectDialogProps> = ({ isOpen, projectName, onClose, onConfirm }) => {
+  // Renders confirmation dialog
+}
+```
+
+#### AddSourceDirectoryModal
+Modal for adding a source directory to a project.
+
+```typescript
+const AddSourceDirectoryModal: React.FC<AddSourceDirectoryModalProps> = ({ isOpen, onClose, onSubmit }) => {
+  // State management for folder path
+  // Handles form submission
+  // Renders modal with form field
+}
+```
+
+#### MainProcessContext
+Context provider for accessing main process functionality from React components.
+
+```typescript
+const MainProcessContext = React.createContext<MainProcessAPI | null>(null);
+
+const MainProcessProvider: React.FC<MainProcessProviderProps> = ({ children }) => {
+  // Provides main process API to child components
+}
+
+const useMainProcess = () => {
+  // Hook for accessing main process API
 }
 ```
 
@@ -190,21 +339,23 @@ class QueryBuilder {
 - `source-folder-removed` - Confirm folder removal
 - `view-created` - Confirm view creation
 - `view-deleted` - Confirm view deletion
-- `data-scanned` - Send scan results and table schema to renderer
-- `query-results` - Send SQL query results to renderer
+- `scan-started` - Notify scan start
 - `scan-progress` - Send scanning progress updates
+- `scan-complete` - Send scan completion notification
+- `sql-query-results` - Send SQL query results to renderer
 - `error` - Send error messages to renderer
 
 #### Renderer → Main Events
 - `load-projects` - Request project list
 - `create-project` - Request project creation
 - `delete-project` - Request project deletion
+- `get-project` - Request specific project details
 - `add-source-folder` - Request folder addition
 - `remove-source-folder` - Request folder removal
 - `create-view` - Request view creation
 - `delete-view` - Request view deletion
-- `scan-data` - Request JSON data scanning for a view
-- `execute-query` - Request SQL query execution
+- `scan-source-directories` - Request JSON data scanning
+- `execute-sql-query` - Request SQL query execution
 - `open-folder` - Request to open folder in system explorer
 
 ## Data Models
@@ -213,17 +364,13 @@ class QueryBuilder {
 
 The application uses a distributed database approach where each project maintains its own SQLite database file located at `{workingDirectory}/.digr/project.db`. This provides project-level data isolation and portability.
 
-#### Global Application Data
-A lightweight JSON file stores the global project registry at the application level:
+#### Global Configuration
+A lightweight JSON file stores the global project registry at the user's home directory:
 ```json
 {
   "projects": [
     {
-      "id": "uuid",
-      "name": "Project Name",
-      "workingDirectory": "/path/to/project",
-      "createdDate": "2024-01-01T00:00:00Z",
-      "lastModified": "2024-01-01T00:00:00Z"
+      "path": "/path/to/project"
     }
   ]
 }
@@ -275,13 +422,65 @@ CREATE TABLE data_view_{viewId} (
 );
 ```
 
+#### Per-Project JSON Configuration
+Each project also maintains a `project.json` file in its `.digr` folder:
+```json
+{
+  "id": "uuid",
+  "name": "Project Name",
+  "sourceFolders": [
+    {
+      "id": "uuid",
+      "path": "/path/to/source/folder",
+      "addedDate": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "createdDate": "2024-01-01T00:00:00Z",
+  "lastModified": "2024-01-01T00:00:00Z",
+  "scanStatus": {
+    "isScanning": false,
+    "progress": {
+      "current": 0,
+      "total": 0,
+      "message": ""
+    },
+    "lastScanResult": {
+      "processedFiles": 0,
+      "extractedObjects": 0,
+      "completedDate": "2024-01-01T00:00:00Z"
+    }
+  }
+}
+```
+
 ### Application Data Models (TypeScript Interfaces)
 
 ```typescript
+// Digr config interface for storing project paths in the user's home directory
+interface DigrConfig {
+  projects: {
+    path: string;
+  }[];
+}
+
 interface SourceFolder {
   id: string;
   path: string;
   addedDate: Date;
+}
+
+interface ScanStatus {
+  isScanning: boolean;  // Whether a scan is currently in progress
+  progress?: {          // Current progress of the scan (if in progress)
+    current: number;
+    total: number;
+    message: string;
+  } | undefined;
+  lastScanResult?: {    // Results of the last completed scan
+    processedFiles: number;
+    extractedObjects: number;
+    completedDate: Date;
+  } | undefined;
 }
 
 interface Project {
@@ -291,6 +490,7 @@ interface Project {
   sourceFolders: SourceFolder[];  // Array of source data folder paths
   createdDate: Date;
   lastModified: Date;
+  scanStatus?: ScanStatus | undefined;  // Current scan status and progress
 }
 
 interface ColumnSchema {
@@ -305,7 +505,7 @@ interface View {
   name: string;         // User-provided name
   createdDate: Date;
   lastModified: Date;
-  lastQuery?: QueryModel;    // Last applied query (optional)
+  lastQuery?: QueryModel | undefined;    // Last applied query (optional)
   tableSchema: ColumnSchema[];  // Schema of the data table
 }
 
@@ -366,14 +566,19 @@ interface QueryResult {
 
 ### Data Validation Errors
 - **Empty project name**: Show validation error, prevent submission
-- **Duplicate project name**: Show warning, allow with confirmation
+- **Duplicate project name**: Show warning, prevent project creation
+- **Invalid characters in project name**: Show validation error, prevent submission
 - **Invalid query parameters**: Show validation error, highlight problematic fields
-- **Missing required data**: Show informative error messages
+
+### Database Errors
+- **Database initialization failure**: Display error message, prevent operation
+- **Query execution errors**: Display error message with details, maintain previous state
+- **Schema validation errors**: Attempt schema migration, display error if unsuccessful
 
 ### Application State Errors
-- **Corrupted data file**: Attempt recovery, fallback to empty state with user notification
+- **Project not found**: Display error message, redirect to project list
+- **View not found**: Display error message, redirect to project detail
 - **IPC communication failure**: Show error message, attempt to restart communication
-- **Memory limitations**: Implement pagination, show warning for large datasets
 
 ### Error Recovery Strategies
 - Graceful degradation for non-critical features
@@ -384,9 +589,9 @@ interface QueryResult {
 ## Testing Strategy
 
 ### Unit Testing
-- **Main Process Components**: Test ProjectManager, ViewManager, JSONScanner, and DataPersistence classes
+- **Main Process Components**: Test ProjectManager, ViewManager, JSONScanner, and DatabaseManager classes
 - **Data Models**: Validate model creation, serialization, and validation
-- **Query Logic**: Test query building and filtering functionality
+- **Query Logic**: Test SQL query execution and result handling
 - **File Operations**: Mock file system operations and test error handling
 
 ### Integration Testing
@@ -397,9 +602,10 @@ interface QueryResult {
 
 ### End-to-End Testing
 - **Project Lifecycle**: Create, modify, and delete projects
-- **View Management**: Create views, scan data, apply queries
+- **Source Folder Management**: Add and remove source folders
+- **Data Scanning**: Scan JSON files and verify results
+- **Query Execution**: Execute SQL queries and verify results
 - **User Workflows**: Complete user journeys from project creation to data analysis
-- **Error Scenarios**: Test application behavior under various error conditions
 
 ### Performance Testing
 - **Large Dataset Handling**: Test with large JSON files and many records
