@@ -1,7 +1,7 @@
 import * as sqlite3 from 'sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
-import { ColumnSchema, PROJECT_FOLDER, DATABASE_FILENAME } from '../types';
+import { ColumnSchema, PROJECT_CONFIG_FOLDER, DATABASE_FILENAME } from '../types';
 
 interface DatabaseResult {
   lastID: number;
@@ -46,10 +46,10 @@ export class DatabaseManager {
         this.databasePath = dbPath;
 
         // Ensure the project directory exists
-        const digrDir = this.ensureProjectFolder(workingDirectory);
-        if (!digrDir) {
-          console.error(`DatabaseManager: Failed to create ${PROJECT_FOLDER} folder at ${workingDirectory}`);
-          reject(new Error(`Failed to create ${PROJECT_FOLDER} folder`));
+        const projectConfigDir = this.ensureProjectConfigFolder(workingDirectory);
+        if (!projectConfigDir) {
+          console.error(`DatabaseManager: Failed to create ${PROJECT_CONFIG_FOLDER} folder at ${workingDirectory}`);
+          reject(new Error(`Failed to create ${PROJECT_CONFIG_FOLDER} folder`));
           return;
         }
 
@@ -242,26 +242,26 @@ export class DatabaseManager {
       throw new Error('Working directory is required');
     }
 
-    return path.join(workingDirectory, PROJECT_FOLDER, DATABASE_FILENAME);
+    return path.join(workingDirectory, PROJECT_CONFIG_FOLDER, DATABASE_FILENAME);
   }
 
   /**
    * Ensure the project folder exists in the project's working directory
    */
-  ensureProjectFolder(workingDirectory: string): boolean {
+  ensureProjectConfigFolder(workingDirectory: string): boolean {
     try {
-      const digrPath = path.join(workingDirectory, PROJECT_FOLDER);
+      const configPath = path.join(workingDirectory, PROJECT_CONFIG_FOLDER);
       
-      if (!fs.existsSync(digrPath)) {
-        fs.mkdirSync(digrPath, { recursive: true });
+      if (!fs.existsSync(configPath)) {
+        fs.mkdirSync(configPath, { recursive: true });
       }
 
       // Verify the folder was created and is accessible
-      const exists = fs.existsSync(digrPath);
-      const isDir = exists && fs.statSync(digrPath).isDirectory();
+      const exists = fs.existsSync(configPath);
+      const isDir = exists && fs.statSync(configPath).isDirectory();
       return exists && isDir;
     } catch (error) {
-      console.error(`DatabaseManager: Failed to create ${PROJECT_FOLDER} folder: ${(error as Error).message}`);
+      console.error(`DatabaseManager: Failed to create ${PROJECT_CONFIG_FOLDER} folder: ${(error as Error).message}`);
       return false;
     }
   }

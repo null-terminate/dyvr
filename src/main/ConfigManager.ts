@@ -20,8 +20,8 @@ export class ConfigManager {
       this.configPath = configPath;
     } else {
       const homeDir = os.homedir();
-      const digrDir = path.join(homeDir, CONFIG_FOLDER);
-      this.configPath = path.join(digrDir, CONFIG_FILENAME);
+      const configDir = path.join(homeDir, CONFIG_FOLDER);
+      this.configPath = path.join(configDir, CONFIG_FILENAME);
     }
   }
 
@@ -31,7 +31,7 @@ export class ConfigManager {
    */
   async initialize(): Promise<void> {
     try {
-      await this.ensureConfigDirectory();
+      await this.ensureGlobalConfigDirectory();
       await this.ensureConfigFile();
       this.isInitialized = true;
     } catch (error) {
@@ -128,12 +128,12 @@ export class ConfigManager {
   /**
    * Ensure the config directory exists in the user's home directory
    */
-  private async ensureConfigDirectory(): Promise<void> {
+  private async ensureGlobalConfigDirectory(): Promise<void> {
     try {
-      const digrDir = path.dirname(this.configPath);
+      const configDir = path.dirname(this.configPath);
       
-      if (!fs.existsSync(digrDir)) {
-        await fs.promises.mkdir(digrDir, { recursive: true });
+      if (!fs.existsSync(configDir)) {
+        await fs.promises.mkdir(configDir, { recursive: true });
       }
     } catch (error) {
       throw new Error(`Failed to create ${CONFIG_FOLDER} directory: ${(error as Error).message}`);

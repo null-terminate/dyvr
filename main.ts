@@ -5,7 +5,7 @@ import { ProjectManager } from './src/main/ProjectManager';
 import { ViewManager } from './src/main/ViewManager';
 import { JSONScanner } from './src/main/JSONScanner';
 import { ConfigManager } from './src/main/ConfigManager';
-import { Project, View, ScanResults, QueryModel, QueryResult, PROJECT_FOLDER, CONFIG_FILENAME } from './src/types';
+import { ScanResults, QueryModel, QueryResult, CONFIG_FILENAME } from './src/types';
 
 // Enable remote debugging for the main process
 app.commandLine.appendSwitch('remote-debugging-port', '9222');
@@ -93,7 +93,7 @@ async function initializeManagers(): Promise<void> {
     jsonScanner = new JSONScanner();
 
     // Load projects from config file
-    await loadProjectsFromDigrConfig();
+    await loadProjectsFromGlobalConfig();
 
     console.log('Application managers initialized successfully');
   } catch (error) {
@@ -111,9 +111,9 @@ async function initializeManagers(): Promise<void> {
   /**
    * Initialize project databases for projects in config file
    */
-async function loadProjectsFromDigrConfig(): Promise<void> {
+async function loadProjectsFromGlobalConfig(): Promise<void> {
   try {
-    // Projects are now loaded directly from digr.config via DataPersistence
+    // Projects are now loaded directly from global config file via DataPersistence
     // We just need to ensure project databases are initialized
     const projects = await projectManager.getProjects();
     console.log(`Loaded ${projects.length} projects from ${CONFIG_FILENAME}`);
@@ -129,7 +129,7 @@ async function loadProjectsFromDigrConfig(): Promise<void> {
         }
         
         // Ensure project folder exists
-        await projectManager.ensureProjectDigrFolder(projectPath);
+        await projectManager.ensureProjectConfigFolder(projectPath);
         
         console.log(`Initialized project database for: ${project.name} at ${projectPath}`);
       } catch (error) {
@@ -980,7 +980,6 @@ app.on('before-quit', async () => {
     if (viewManager) {
       await viewManager.close();
     }
-    // No need to close digrConfigManager as it doesn't maintain any open resources
   } catch (error) {
     console.error('Error during app quit cleanup:', error);
   }

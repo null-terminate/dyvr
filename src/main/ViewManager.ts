@@ -9,7 +9,7 @@ interface ViewUpdateData {
 
 /**
  * ViewManager handles view CRUD operations with per-project database integration.
- * Each project maintains its own SQLite database with views stored in the project's .digr folder.
+ * Each project maintains its own SQLite database with views stored in the project's config folder.
  * This provides project-level data isolation and portability.
  */
 export class ViewManager {

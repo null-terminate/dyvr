@@ -1,14 +1,14 @@
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
-import { Project, SourceFolder, Config, PROJECT_FOLDER, PROJECT_CONFIG_FILE } from '../types';
+import { Project, SourceFolder, Config, PROJECT_CONFIG_FOLDER, PROJECT_CONFIG_FILE } from '../types';
 import { ConfigManager } from './ConfigManager';
 import { DatabaseManager } from './DatabaseManager';
 
 /**
  * ProjectManager handles project CRUD operations and persistence across global registry and per-project databases.
  * Uses a distributed approach where project metadata is stored in a global registry,
- * while project-specific data is stored in per-project .digr databases.
+ * while project-specific data is stored in per-project databases.
  */
 export class ProjectManager {
   private configManager: ConfigManager;
@@ -56,10 +56,10 @@ export class ProjectManager {
           console.warn(`ProjectManager: Project path "${projectPath}" does not exist, but will still load it`);
         } else {
           
-          // Check if the project path has a .digr subfolder
-          const digrFolderPath = path.join(projectPath, PROJECT_FOLDER);
-          if (!fs.existsSync(digrFolderPath)) {
-            console.warn(`ProjectManager: Project path "${projectPath}" does not have a .digr subfolder`);
+          // Check if the project path has a config subfolder
+          const projectConfigFolderPath = path.join(projectPath, PROJECT_CONFIG_FOLDER);
+          if (!fs.existsSync(projectConfigFolderPath)) {
+            console.warn(`ProjectManager: Project path "${projectPath}" does not have a config subfolder`);
           } else {
           }
         }
@@ -103,7 +103,7 @@ export class ProjectManager {
       
       return projects;
     } catch (error) {
-      console.error('Failed to load projects from digr.config:', error);
+      console.error('Failed to load projects from global config:', error);
       return [];
     }
   }
@@ -116,7 +116,7 @@ export class ProjectManager {
     this._validateProject(project);
 
     try {
-      // Add to digr.config
+      // Add to global config
       await this.configManager.addProject(project.workingDirectory);
       
       // Update cache
@@ -150,10 +150,10 @@ export class ProjectManager {
           throw new Error(`Project with ID ${projectId} not found`);
         }
         
-        // Remove from digr.config
+        // Remove from global config
         await this.configManager.removeProject(foundProject.workingDirectory);
       } else {
-        // Remove from digr.config
+        // Remove from global config
         await this.configManager.removeProject(project.workingDirectory);
         
         // Remove from cache
@@ -188,7 +188,7 @@ export class ProjectManager {
         }
       }
       
-      // If working directory changed, update digr.config
+      // If working directory changed, update global config
       if (updates.workingDirectory && updates.workingDirectory !== project.workingDirectory) {
         await this.configManager.removeProject(project.workingDirectory);
         await this.configManager.addProject(updates.workingDirectory);
@@ -306,14 +306,14 @@ export class ProjectManager {
         throw new Error(`Project directory is not accessible: ${(accessError as Error).message}`);
       }
       
-      // Create .digr subfolder in the project directory
-      const digrFolderPath = path.join(projectPath, PROJECT_FOLDER);
-      if (!fs.existsSync(digrFolderPath)) {
+      // Create local config subfolder in the project directory
+      const projectConfigFolderPath = path.join(projectPath, PROJECT_CONFIG_FOLDER);
+      if (!fs.existsSync(projectConfigFolderPath)) {
         try {
-          fs.mkdirSync(digrFolderPath, { recursive: true });
+          fs.mkdirSync(projectConfigFolderPath, { recursive: true });
         } catch (fsError) {
-          console.error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
-          throw new Error(`Failed to create .digr subfolder: ${(fsError as Error).message}`);
+          console.error(`Failed to create config subfolder: ${(fsError as Error).message}`);
+          throw new Error(`Failed to create config subfolder: ${(fsError as Error).message}`);
         }
       } else {
       }
@@ -329,7 +329,7 @@ export class ProjectManager {
       };
 
       // Create per-project database and initialize schema
-      await this.ensureProjectDigrFolder(projectPath);
+      await this.ensureProjectConfigFolder(projectPath);
       const dbManager = new DatabaseManager(projectPath);
       await dbManager.initializeProjectDatabase(project.id, project.name, projectPath);
       await dbManager.createProjectSchema(project.id, project.name, projectPath);
@@ -410,22 +410,21 @@ export class ProjectManager {
       // Remove from global registry
       await this.removeProjectFromRegistry(projectId);
       
-      // Note: We preserve the .digr folder and its contents as per requirements
+      // Note: We preserve the folder and its contents
     } catch (error) {
       throw new Error(`Failed to delete project: ${(error as Error).message}`);
     }
   }
 
   /**
-   * Save project data to project.json file in the .digr folder
+   * Save project data to project.json file in the local config folder
    */
   private async saveProjectJson(project: Project): Promise<void> {
     try {
-      // Ensure .digr folder exists
-      await this.ensureProjectDigrFolder(project.workingDirectory);
+      await this.ensureProjectConfigFolder(project.workingDirectory);
       
       // Create project.json file path
-      const projectJsonPath = path.join(project.workingDirectory, PROJECT_FOLDER, PROJECT_CONFIG_FILE);
+      const projectJsonPath = path.join(project.workingDirectory, PROJECT_CONFIG_FOLDER, PROJECT_CONFIG_FILE);
       
       // Create project data to save
       const projectData = {
@@ -446,12 +445,12 @@ export class ProjectManager {
   }
   
   /**
-   * Load project data from project.json file in the .digr folder
+   * Load project data from project.json file in the project config folder
    */
   private async loadProjectJson(projectWorkingDirectory: string): Promise<Partial<Project> | null> {
     try {
       // Create project.json file path
-      const projectJsonPath = path.join(projectWorkingDirectory, PROJECT_FOLDER, PROJECT_CONFIG_FILE);
+      const projectJsonPath = path.join(projectWorkingDirectory, PROJECT_CONFIG_FOLDER, PROJECT_CONFIG_FILE);
       
       // Check if project.json exists
       if (!fs.existsSync(projectJsonPath)) {
@@ -721,24 +720,24 @@ export class ProjectManager {
   /**
    * Ensure the project folder exists in the project's working directory
    */
-  async ensureProjectDigrFolder(workingDirectory: string): Promise<void> {
+  async ensureProjectConfigFolder(workingDirectory: string): Promise<void> {
     if (!workingDirectory || typeof workingDirectory !== 'string') {
       throw new Error('Working directory is required');
     }
 
     try {
-      const digrPath = path.join(workingDirectory, PROJECT_FOLDER);
+      const projectConfigFolderPath = path.join(workingDirectory, PROJECT_CONFIG_FOLDER);
       
-      if (!fs.existsSync(digrPath)) {
-        fs.mkdirSync(digrPath, { recursive: true });
+      if (!fs.existsSync(projectConfigFolderPath)) {
+        fs.mkdirSync(projectConfigFolderPath, { recursive: true });
       }
 
       // Verify the folder was created and is accessible
-      if (!fs.existsSync(digrPath) || !fs.statSync(digrPath).isDirectory()) {
-        throw new Error(`Failed to create or access ${PROJECT_FOLDER} folder`);
+      if (!fs.existsSync(projectConfigFolderPath) || !fs.statSync(projectConfigFolderPath).isDirectory()) {
+        throw new Error(`Failed to create or access ${PROJECT_CONFIG_FOLDER} folder`);
       }
     } catch (error) {
-      throw new Error(`Failed to ensure ${PROJECT_FOLDER} folder: ${(error as Error).message}`);
+      throw new Error(`Failed to ensure ${PROJECT_CONFIG_FOLDER} folder: ${(error as Error).message}`);
     }
   }
 
@@ -756,7 +755,7 @@ export class ProjectManager {
         console.log(`Project database does not exist, creating it: ${dbPath}`);
         
         // Create the database and initialize schema
-        await this.ensureProjectDigrFolder(project.workingDirectory);
+        await this.ensureProjectConfigFolder(project.workingDirectory);
         const dbManager = new DatabaseManager(project.workingDirectory);
         await dbManager.initializeProjectDatabase(project.id, project.name, project.workingDirectory);
         await dbManager.createProjectSchema(project.id, project.name, project.workingDirectory);

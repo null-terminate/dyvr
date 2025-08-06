@@ -6,14 +6,14 @@
 /**
  * Project directory constants
  */
-export const PROJECT_FOLDER = '.digr';
+export const PROJECT_CONFIG_FOLDER = '.dyvr';
 export const PROJECT_CONFIG_FILE = 'project.json';
 
 /**
  * Global configuration constants
  */
-export const CONFIG_FILENAME = 'digr.config';
-export const CONFIG_FOLDER = '.digr';
+export const CONFIG_FILENAME = 'dyvr.config';
+export const CONFIG_FOLDER = '.dyvr';
 
 /**
  * Database constants
