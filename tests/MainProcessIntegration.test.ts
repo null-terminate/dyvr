@@ -1,6 +1,6 @@
 import { ProjectManager } from '../src/main/ProjectManager';
 import { ViewManager } from '../src/main/ViewManager';
-import { JSONScanner } from '../src/main/JSONScanner';
+import { FileScanner } from '../src/main/FileScanner';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -9,7 +9,7 @@ import { createTempConfigPath, createTempTestDir, cleanupTempDir } from './setup
 describe('Main Process Integration', () => {
   let projectManager: ProjectManager;
   let viewManager: ViewManager;
-  let jsonScanner: JSONScanner;
+  let jsonScanner: FileScanner;
   let testDir: string;
   let testConfigPath: string;
 
@@ -36,7 +36,7 @@ describe('Main Process Integration', () => {
     viewManager = new ViewManager();
     await viewManager.initialize();
 
-    jsonScanner = new JSONScanner();
+    jsonScanner = new FileScanner();
   });
 
   afterEach(async () => {

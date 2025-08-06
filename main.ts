@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ProjectManager } from './src/main/ProjectManager';
 import { ViewManager } from './src/main/ViewManager';
-import { JSONScanner } from './src/main/JSONScanner';
+import { FileScanner } from './src/main/FileScanner';
 import { ConfigManager } from './src/main/ConfigManager';
 import { ScanResults, QueryModel, QueryResult, CONFIG_FILENAME } from './src/types';
 
@@ -13,7 +13,7 @@ app.commandLine.appendSwitch('remote-debugging-port', '9222');
 // Application managers
 let projectManager: ProjectManager;
 let viewManager: ViewManager;
-let jsonScanner: JSONScanner;
+let fileScanner: FileScanner;
 let configManager: ConfigManager;
 let mainWindow: BrowserWindow | null = null;
 
@@ -90,7 +90,7 @@ async function initializeManagers(): Promise<void> {
     await viewManager.initialize();
 
     // Initialize JSONScanner
-    jsonScanner = new JSONScanner();
+    fileScanner = new FileScanner();
 
     // Load projects from config file
     await loadProjectsFromGlobalConfig();
@@ -425,7 +425,7 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
       if (!folder || !folder.path) continue;
       
       try {
-        const jsonFiles = await jsonScanner.findJsonFiles(folder.path);
+        const jsonFiles = await fileScanner.findJsonFiles(folder.path);
         totalFiles += jsonFiles.length;
       } catch (error) {
         console.warn(`Error counting files in ${folder.path || 'unknown path'}:`, error);
@@ -446,7 +446,7 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
         }
 
         // Find all JSON and JSONL files in the folder
-        const jsonFiles = await jsonScanner.findJsonFiles(folder.path);
+        const jsonFiles = await fileScanner.findJsonFiles(folder.path);
         
         // Process each file
         for (let i = 0; i < jsonFiles.length; i++) {
@@ -477,7 +477,7 @@ ipcMain.on('scan-source-directories', async (event, projectId: string) => {
           try {
             if (filePath) {
               // Parse the file
-              const jsonData = await jsonScanner.parseFile(filePath);
+              const jsonData = await fileScanner.parseFile(filePath);
               
               // Define chunk size
               const CHUNK_SIZE = 50;

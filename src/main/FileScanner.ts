@@ -74,7 +74,7 @@ interface ColumnStats {
  * JSONScanner handles scanning and parsing JSON files from source data folders,
  * analyzing their schema, and preparing data for database insertion.
  */
-export class JSONScanner {
+export class FileScanner {
   private scanResults: ScanResults | null = null;
   private errors: ScanError[] = [];
 

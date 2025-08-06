@@ -1,16 +1,14 @@
-import { JSONScanner } from '../src/main/JSONScanner';
-import { DatabaseManager } from '../src/main/DatabaseManager';
-import { ScanColumn, ScanResults } from '../src/types';
+import { FileScanner } from '../src/main/FileScanner';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
 describe('JSONScanner', () => {
-  let scanner: JSONScanner;
+  let scanner: FileScanner;
   let tempDir: string;
 
   beforeEach(() => {
-    scanner = new JSONScanner();
+    scanner = new FileScanner();
     // Create a temporary directory for test files
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'jsonscanner-test-'));
   });
