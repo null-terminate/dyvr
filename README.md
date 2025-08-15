@@ -114,3 +114,6 @@ The application uses Electron's IPC (Inter-Process Communication) system to comm
 ## License
 
 MIT
+
+
+![Repository Image](./src/assets/Scuba.png)
