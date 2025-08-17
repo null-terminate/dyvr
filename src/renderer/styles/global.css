@@ -1,4 +1,29 @@
 /* Global styles */
+/* Font declarations */
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('../../assets/fonts/RobotoMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('../../assets/fonts/RobotoMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('../../assets/fonts/RobotoMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -11,7 +36,7 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'Roboto Mono', monospace;
   font-size: 15px;
   line-height: 1.4;
   color: #333;
@@ -91,7 +116,7 @@ button {
   border-radius: 4px;
   cursor: pointer;
   font-size: 13px;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'Roboto Mono', monospace;
 }
 
 button:hover {
@@ -146,7 +171,7 @@ input, select, textarea {
   border-radius: 4px;
   font-size: 13px;
   width: 100%;
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'Roboto Mono', monospace;
 }
 
 .form-group {
