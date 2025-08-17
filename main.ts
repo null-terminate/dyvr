@@ -162,6 +162,46 @@ function sendResponse(event: string, data: any): void {
   }
 }
 
+// IPC Event Handlers for Font Settings
+
+/**
+ * Get the font family preference
+ */
+ipcMain.handle('get-font-family', async () => {
+  try {
+    if (!configManager) {
+      throw new Error('ConfigManager not initialized');
+    }
+    
+    const fontFamily = await configManager.getFontFamily();
+    console.log(`Retrieved font family preference: ${fontFamily}`);
+    return fontFamily;
+  } catch (error) {
+    console.error('Failed to get font family preference:', error);
+    throw error;
+  }
+});
+
+/**
+ * Set the font family preference
+ */
+ipcMain.on('set-font-family', async (event, fontFamily: 'Roboto Mono' | 'Courier New') => {
+  try {
+    if (!configManager) {
+      throw new Error('ConfigManager not initialized');
+    }
+    
+    console.log(`Setting font family preference to: ${fontFamily}`);
+    await configManager.setFontFamily(fontFamily);
+    
+    // Send response to confirm the setting was updated
+    sendResponse('font-family-updated', fontFamily);
+  } catch (error) {
+    console.error('Failed to set font family preference:', error);
+    sendError('Failed to set font family preference', (error as Error).message);
+  }
+});
+
 // IPC Event Handlers for Project CRUD Operations
 
 /**

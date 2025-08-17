@@ -90,6 +90,11 @@ export interface QueryResult {
 }
 
 export interface MainProcessAPI {
+  // Font settings
+  getFontFamily: () => Promise<'Roboto Mono' | 'Courier New'>;
+  setFontFamily: (fontFamily: 'Roboto Mono' | 'Courier New') => void;
+  onFontFamilyUpdated: (callback: (fontFamily: 'Roboto Mono' | 'Courier New') => void) => void;
+
   // Project operations
   loadProjects: () => void;
   onProjectsLoaded: (callback: (projects: Project[]) => void) => void;

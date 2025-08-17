@@ -117,6 +117,17 @@ contextBridge.exposeInMainWorld(
       ipcRenderer.on('view-data-status', (_event, data) => callback(data));
     },
 
+    // Font settings
+    getFontFamily: () => {
+      return ipcRenderer.invoke('get-font-family');
+    },
+    setFontFamily: (fontFamily: 'Roboto Mono' | 'Courier New') => {
+      ipcRenderer.send('set-font-family', fontFamily);
+    },
+    onFontFamilyUpdated: (callback: (fontFamily: 'Roboto Mono' | 'Courier New') => void) => {
+      ipcRenderer.on('font-family-updated', (_event, fontFamily) => callback(fontFamily));
+    },
+
     // Error handling
     onError: (callback: (error: { message: string, details?: string }) => void) => {
       ipcRenderer.on('error', (_event, error) => callback(error));

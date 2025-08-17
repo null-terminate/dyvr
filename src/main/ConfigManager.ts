@@ -52,11 +52,11 @@ export class ConfigManager {
         return JSON.parse(data) as Config;
       } catch (error) {
         console.warn(`Invalid JSON in ${CONFIG_FILENAME}: ${(error as Error).message}`);
-        return { projects: [] };
+        return { projects: [], settings: { fontFamily: 'Roboto Mono' } };
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return { projects: [] };
+        return { projects: [], settings: { fontFamily: 'Roboto Mono' } };
       }
       throw new Error(`Failed to read ${CONFIG_FILENAME}: ${(error as Error).message}`);
     }
@@ -146,7 +146,12 @@ export class ConfigManager {
   private async ensureConfigFile(): Promise<void> {
     try {
       if (!fs.existsSync(this.configPath)) {
-        const defaultConfig: Config = { projects: [] };
+        const defaultConfig: Config = { 
+          projects: [],
+          settings: {
+            fontFamily: 'Roboto Mono'
+          }
+        };
         await fs.promises.writeFile(
           this.configPath,
           JSON.stringify(defaultConfig, null, 2),
@@ -174,10 +179,50 @@ export class ConfigManager {
     this._validateInitialized();
     
     try {
-      const emptyConfig: Config = { projects: [] };
+      const emptyConfig: Config = { 
+        projects: [],
+        settings: {
+          fontFamily: 'Roboto Mono'
+        }
+      };
       await this.saveConfig(emptyConfig);
     } catch (error) {
       throw new Error(`Failed to reset ${CONFIG_FILENAME}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Get the font family preference
+   */
+  async getFontFamily(): Promise<'Roboto Mono' | 'Courier New'> {
+    this._validateInitialized();
+
+    try {
+      const config = await this.getConfig();
+      return config.settings?.fontFamily || 'Roboto Mono';
+    } catch (error) {
+      console.warn(`Failed to get font family preference: ${(error as Error).message}`);
+      return 'Roboto Mono'; // Default to Roboto Mono if there's an error
+    }
+  }
+
+  /**
+   * Set the font family preference
+   */
+  async setFontFamily(fontFamily: 'Roboto Mono' | 'Courier New'): Promise<void> {
+    this._validateInitialized();
+
+    try {
+      const config = await this.getConfig();
+      
+      if (!config.settings) {
+        config.settings = {};
+      }
+      
+      config.settings.fontFamily = fontFamily;
+      await this.saveConfig(config);
+    } catch (error) {
+      throw new Error(`Failed to set font family preference: ${(error as Error).message}`);
     }
   }
 }
