@@ -46,10 +46,17 @@ export const FontProvider: React.FC<FontProviderProps> = ({ children }) => {
 
   // Apply the font family to the document root
   useEffect(() => {
-    if (fontFamily === 'Roboto Mono') {
-      document.documentElement.style.setProperty('--app-font-family', 'var(--roboto-mono-font)');
-    } else {
-      document.documentElement.style.setProperty('--app-font-family', 'var(--courier-new-font)');
+    switch (fontFamily) {
+      case 'Roboto Mono':
+        document.documentElement.style.setProperty('--app-font-family', 'var(--roboto-mono-font)');
+        break;
+      case 'Courier New':
+        document.documentElement.style.setProperty('--app-font-family', 'var(--courier-new-font)');
+        break;
+      default:
+        // Default to Roboto Mono if an unexpected value is encountered
+        document.documentElement.style.setProperty('--app-font-family', 'var(--roboto-mono-font)');
+        break;
     }
   }, [fontFamily]);
 
