@@ -53,3 +53,6 @@ Desktop.ini
 # Project specific
 *.sqlite
 *.sqlite3
+
+# Profiles
+.profiles

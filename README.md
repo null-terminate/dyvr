@@ -111,6 +111,17 @@ npm run dist
 
 The application uses Electron's IPC (Inter-Process Communication) system to communicate between the main process and the renderer process. The preload script exposes a safe API to the renderer process, which is then used by the React components.
 
+## Distribution
+
+Outside the app store:
+
+1. Export the following variables into the Environment:
+    ```
+    export APPLE_ID="{apple-id-email-address}"
+    export APPLE_APP_SPECIFIC_PASSWORD="{from-https://account.apple.com/account/manage->App-Specific-Passwords}"
+    ```
+2. `<key>com.apple.security.app-sandbox</key><true/>` should not be present in the entitlements files.
+
 ## License
 
 MIT

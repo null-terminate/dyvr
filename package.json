@@ -5,6 +5,7 @@
   "main": "dist/main.js",
   "homepage": "./",
   "scripts": {
+    "postinstall": "electron-builder install-app-deps",
     "build:main": "tsc",
     "build:main:watch": "tsc --watch",
     "build:renderer": "webpack --config webpack.config.js",
@@ -19,13 +20,15 @@
     "package": "electron-builder",
     "package:mac": "electron-builder --mac",
     "package:dir": "electron-builder --mac dir",
+    "package:mas": "electron-builder --mac mas",
+    "package:mas-dev": "electron-builder --mac mas-dev",
     "dist": "electron-builder --publish=never",
     "test": "jest",
     "test:watch": "jest --watch",
     "clean": "rm -rf dist"
   },
   "build": {
-    "appId": "com.null-reference.dyvr",
+    "appId": "com.null-terminate.dyvr",
     "productName": "Dyvr",
     "directories": {
       "output": "build"
@@ -38,6 +41,9 @@
     ],
     "icon": "src/assets/Scuba.png",
     "mac": {
+      "notarize": {
+        "teamId": "N866MPR4Q8"
+      },
       "category": "public.app-category.productivity",
       "target": [
         {
@@ -47,7 +53,28 @@
             "arm64"
           ]
         }
-      ]
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "config/mac/entitlements.mac.plist",
+      "entitlementsInherit": "config/mac/entitlements.mac.inherit.plist",
+      "gatekeeperAssess": false,
+      "identity": "Lucas Natraj (N866MPR4Q8)"
+    },
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/sqlite3/**"
+    ],
+    "mas": {
+      "category": "public.app-category.productivity",
+      "entitlements": "config/mas/entitlements.mas.plist",
+      "entitlementsInherit": "config/mas/entitlements.mas.inherit.plist",
+      "hardenedRuntime": true,
+      "type": "distribution",
+      "artifactName": "${productName}-${version}-mas.${ext}",
+      "target": "mas",
+      "extendInfo": "config/mas/Info.plist",
+      "provisioningProfile": ".profiles/Three.provisionprofile",
+      "gatekeeperAssess": false
     },
     "dmg": {
       "title": "Dyvr",
@@ -97,7 +124,7 @@
     "webpack-cli": "^6.0.1",
     "webpack-dev-server": "^5.2.2"
   },
-  "author": "Your Name",
+  "author": "Lucas Natraj",
   "license": "MIT",
   "dependencies": {
     "@types/react": "^19.1.8",
